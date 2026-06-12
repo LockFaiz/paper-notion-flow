@@ -64,6 +64,12 @@ Notion:论文行(元数据)+ 子页(解读,公式渲染,生成信息页脚)
 - [使用手册(中文)](docs/MANUAL.zh-CN.md) / [Manual (EN)](docs/MANUAL.md) — 每个设置项的含义与故障排查
 - 插件开发文档:[paper-flow-zotero-plugin/README.md](paper-flow-zotero-plugin/README.md)
 
+## 致谢
+
+- [Notero](https://github.com/dvanoni/notero)(David Vanoni)开创了 Zotero → Notion 同步的工作流,启发了本项目。Paper Flow 与其共用 Notion 属性命名习惯以保持兼容,但不包含任何 Notero 代码。
+- Zotero 插件基于 windingwind 与 Zotero 插件社区的 [zotero-plugin-template](https://github.com/windingwind/zotero-plugin-template)、[zotero-plugin-toolkit](https://github.com/windingwind/zotero-plugin-toolkit) 和 [zotero-plugin-scaffold](https://github.com/northword/zotero-plugin-scaffold) 构建,`bootstrap.js` 源自 Zotero 官方 [Make It Red](https://github.com/zotero/make-it-red) 示例。
+- 论文解读由你本地安装的 [Codex CLI](https://github.com/openai/codex) 或 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 生成。
+
 ## 许可
 
 AGPL-3.0-or-later
