@@ -11,3 +11,5 @@ effort-default = Standard
 config-line = Aktuelle Konfiguration: { $tool } · Modell { $model } · Effort { $effort }
 config-context = · Kontext { $context }
 pick-workspace = Wähle den paper-notion-flow Workspace-Ordner
+reveal = Anzeigen
+conceal = Verbergen

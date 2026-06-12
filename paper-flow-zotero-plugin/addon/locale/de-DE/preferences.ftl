@@ -16,7 +16,7 @@ pref-skip-unchanged =
 pref-use-custom-commands =
     .label = Benutzerdefinierte Befehlsvorlagen statt verwaltetem Modus verwenden
 pref-managed-note = Steuert, wann Einträge automatisch an die KI übergeben werden.
-pref-watched-collection = Nur Einträge aus dieser Sammlung verarbeiten (leer = alle)
+pref-watched-collection = Nur Einträge in den angehakten Sammlungen verarbeiten (keine angehakt = alle verarbeiten)
 pref-debounce-seconds = Sekunden nach einer Zotero-Änderung warten
 pref-process-timeout = Befehl stoppen, wenn er länger als diese Sekunden läuft
 pref-section-ai = KI-CLI
@@ -60,10 +60,11 @@ pref-runtime-native =
     .label = Native Shell
 pref-runtime-wsl =
     .label = WSL
-pref-use-selected-collection = Ausgewählte Sammlung verwenden
-pref-clear-watched-collection = Sammlungsfilter löschen
 pref-sync-notes =
     .label = Zotero-Notizen in eine Notion-Unterseite synchronisieren
 pref-archive-preview =
     .label = Bereinigung gelöschter Einträge vor dem Archivieren ansehen
 pref-browse = Durchsuchen…
+pref-collections-select-all = Alle auswählen
+pref-collections-clear = Auswahl aufheben
+pref-reveal = Anzeigen

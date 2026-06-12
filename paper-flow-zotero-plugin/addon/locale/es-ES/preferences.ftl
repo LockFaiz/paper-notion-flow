@@ -16,7 +16,7 @@ pref-skip-unchanged =
 pref-use-custom-commands =
     .label = Usar plantillas de comandos personalizadas en lugar del modo gestionado
 pref-managed-note = Controla cuándo se entregan los elementos automáticamente a la IA.
-pref-watched-collection = Procesar solo esta colección (vacío = todas)
+pref-watched-collection = Procesar solo elementos de las colecciones marcadas (ninguna marcada = procesar todo)
 pref-debounce-seconds = Segundos de espera tras un cambio en Zotero
 pref-process-timeout = Detener el comando si tarda más de estos segundos
 pref-section-ai = CLI de IA
@@ -60,10 +60,11 @@ pref-runtime-native =
     .label = Shell nativa
 pref-runtime-wsl =
     .label = WSL
-pref-use-selected-collection = Usar la colección seleccionada
-pref-clear-watched-collection = Quitar el filtro de colección
 pref-sync-notes =
     .label = Sincronizar notas de Zotero a una subpágina de Notion
 pref-archive-preview =
     .label = Previsualizar la limpieza de eliminados antes de archivar
 pref-browse = Examinar…
+pref-collections-select-all = Seleccionar todo
+pref-collections-clear = Quitar selección
+pref-reveal = Mostrar

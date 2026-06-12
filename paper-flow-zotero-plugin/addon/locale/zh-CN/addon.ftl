@@ -11,3 +11,5 @@ effort-default = 默认
 config-line = 当前配置:{ $tool } · 模型 { $model } · 推理强度 { $effort }
 config-context = · 上下文 { $context }
 pick-workspace = 选择 paper-notion-flow 工作区文件夹
+reveal = 显示
+conceal = 隐藏

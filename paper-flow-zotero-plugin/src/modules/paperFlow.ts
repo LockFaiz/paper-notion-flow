@@ -16,6 +16,10 @@ let pendingDeleteTimer: number | undefined;
 let runChain: Promise<void> = Promise.resolve();
 
 const DEFAULT_PROCESS_TIMEOUT_MS = 30 * 60 * 1000;
+// After a failed/cancelled AUTO run, leave the item alone for a while instead
+// of re-running it on every subsequent sync pulse or write-back event.
+const AUTO_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
+const failedAutoRuns = new Map<string, number>();
 const PAPER_FLOW_LINK_TITLE = "Paper Flow Notion";
 const PAPER_FLOW_GUIDE_LINK_TITLE = "Paper Flow Guide";
 const PAPER_FLOW_TAG = "paper-flow";
@@ -295,6 +299,12 @@ export class PaperFlowPlugin {
     if (!this.isEnabled() || !this.isAutoSyncEnabled()) {
       return;
     }
+    // Changes landing during an active Zotero account sync originate from
+    // ANOTHER device — which already auto-processed them. Queueing them here
+    // too made every edit run the AI once per machine.
+    if ((Zotero as any).Sync?.Runner?.syncInProgress) {
+      return;
+    }
     if (type === "collection-item" && event === "add") {
       await this.handleCollectionItemsAdded(ids);
       return;
@@ -319,11 +329,13 @@ export class PaperFlowPlugin {
       if (!this.matchesCollection(item)) {
         continue;
       }
-      // A "modify" event whose bibliographic content is unchanged is usually
-      // a sync metadata write-back, not a real paper-content edit.
-      if (event === "modify" && !(await this.hasItemContentChanged(item))) {
+      // Fingerprint gate for BOTH add and modify: an item arriving via sync
+      // fires "add" on this device even though another device already
+      // processed it (fingerprints roam through the config note), and an
+      // unchanged "modify" is usually a sync metadata write-back.
+      if (!(await this.hasItemContentChanged(item))) {
         this.setStatusMessage(
-          `Skipped ${this.getItemLabel(item)}: content unchanged since the last Paper Flow run (likely a sync metadata write-back).`,
+          `Skipped ${this.getItemLabel(item)}: content unchanged since the last Paper Flow run (already processed here or on another device).`,
         );
         continue;
       }
@@ -713,6 +725,14 @@ export class PaperFlowPlugin {
   }
 
   private static queueItem(item: Zotero.Item, reason: string) {
+    const failedAt = failedAutoRuns.get(item.key) || 0;
+    const cooldownLeft = failedAt + AUTO_RETRY_COOLDOWN_MS - Date.now();
+    if (cooldownLeft > 0) {
+      this.setStatusMessage(
+        `Skipped ${this.getItemLabel(item)}: last automatic run failed or was cancelled; retrying in ${Math.ceil(cooldownLeft / 60000)} min (or run it manually).`,
+      );
+      return;
+    }
     const existing = pendingTimers.get(item.key);
     this.clearManagedTimeout(existing);
 
@@ -835,6 +855,9 @@ export class PaperFlowPlugin {
         }
       }
       setPref("processedFingerprints", JSON.stringify(map));
+      // Share the fact that this item is done with other devices right away,
+      // so their sync-triggered add/modify events skip it.
+      void this.pushConfigToZotero();
     } catch (error) {
       ztoolkit.log(`Paper Flow could not store item fingerprint: ${error}`);
     }
@@ -933,6 +956,7 @@ export class PaperFlowPlugin {
       // Record what we just processed so later sync metadata write-backs are
       // recognised as "unchanged" and skipped.
       await this.rememberProcessedItem(item);
+      failedAutoRuns.delete(item.key);
       const message = await this.buildDiagnosticMessage({
         title: `Finished processing ${itemLabel}.`,
         command,
@@ -952,6 +976,10 @@ export class PaperFlowPlugin {
       this.setStatusMessage(message);
       this.copyTextToClipboard(message);
       await this.applyFailureWriteback(item);
+      if (mode === "auto") {
+        // Cooldown so sync pulses / write-backs cannot hammer a failing item.
+        failedAutoRuns.set(item.key, Date.now());
+      }
       if (this.shouldShowNotifications()) {
         this.showProgress(`Paper Flow failed for ${itemLabel}.`, "error");
       }
@@ -1409,10 +1437,20 @@ export class PaperFlowPlugin {
   /** Writes the roaming config into the synced note (creates it if needed). */
   static async pushConfigToZotero() {
     try {
+      // Fingerprints roam too, so another device recognises already-processed
+      // items instead of re-running the AI on them. Only the most recent 500
+      // entries travel to keep the note small.
+      const fingerprintMap = this.getProcessedFingerprints();
+      const fingerprintKeys = Object.keys(fingerprintMap).slice(-500);
+      const fingerprints: Record<string, string> = {};
+      for (const key of fingerprintKeys) {
+        fingerprints[key] = fingerprintMap[key];
+      }
       const payload = {
         databaseId: this.getNotionDatabaseId(),
         promptPresets: this.getPromptPresets(),
         defaultPromptName: this.getDefaultPromptName(),
+        fingerprints,
         updatedAt: Date.now(),
       };
       const html = [
@@ -1504,6 +1542,15 @@ export class PaperFlowPlugin {
             payload.promptPresets.slice(0, this.MAX_PROMPT_PRESETS),
           ),
         );
+      }
+      if (payload.fingerprints && typeof payload.fingerprints === "object") {
+        // MERGE (never replace): each device contributes the items it
+        // processed; union means neither side re-runs the other's work.
+        const merged = {
+          ...this.getProcessedFingerprints(),
+          ...payload.fingerprints,
+        };
+        setPref("processedFingerprints", JSON.stringify(merged));
       }
       if (typeof payload.defaultPromptName === "string") {
         setPref("defaultPromptName", payload.defaultPromptName);

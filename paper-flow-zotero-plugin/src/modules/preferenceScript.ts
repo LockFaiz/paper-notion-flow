@@ -25,6 +25,7 @@ export async function registerPrefsScripts(window: Window) {
   refreshModelOptions(window);
   refreshEffortOptions(window);
   refreshPromptPresets(window);
+  refreshCollectionList(window);
   bindPrefEvents(window);
   // Check CLI freshness + official model caches in the background so the
   // banner and the model dropdown are current every time the pane opens.
@@ -148,29 +149,31 @@ function bindPrefEvents(window: Window) {
     );
   });
 
-  onClick(window, "use-selected-collection", () => {
-    const collection =
-      Zotero.getMainWindow()?.ZoteroPane?.getSelectedCollection?.();
-    if (!collection) {
-      PaperFlowPlugin.setStatusMessage("Select a Zotero collection first.");
-      return;
-    }
-    setPref("watchedCollection" as any, collection.name as any);
-    setPref("watchedCollectionKeys" as any, collection.key as any);
-    syncManagedPreferenceUI(window);
-    PaperFlowPlugin.setStatusMessage(
-      `Watching Zotero collection: ${collection.name}`,
-    );
+  onClick(window, "collections-select-all", () => {
+    setCollectionChecks(window, true);
   });
 
-  onClick(window, "clear-watched-collection", () => {
-    setPref("watchedCollection" as any, "" as any);
-    setPref("watchedCollectionKeys" as any, "" as any);
-    syncManagedPreferenceUI(window);
-    PaperFlowPlugin.setStatusMessage(
-      "Paper Flow will process all collections.",
-    );
+  onClick(window, "collections-clear", () => {
+    setCollectionChecks(window, false);
   });
+
+  const tokenInput = window.document.querySelector(
+    `#zotero-prefpane-${config.addonRef}-notion-token`,
+  ) as HTMLInputElement | null;
+  const tokenToggle = window.document.querySelector(
+    `#zotero-prefpane-${config.addonRef}-token-toggle`,
+  ) as HTMLElement | null;
+  if (tokenInput && tokenToggle) {
+    tokenToggle.addEventListener("click", () => {
+      // Password inputs block copy/cut by design; revealing as plain text
+      // re-enables selecting and copying the token out.
+      const reveal = tokenInput.type === "password";
+      tokenInput.type = reveal ? "text" : "password";
+      tokenToggle.textContent = getString(
+        (reveal ? "conceal" : "reveal") as any,
+      );
+    });
+  }
 
   onClick(window, "workspace-browse", () => {
     void (async () => {
@@ -603,6 +606,106 @@ function updateConfigLine(window: Window) {
     text += getString("config-context" as any, { args: { context } });
   }
   node.textContent = text;
+}
+
+/** All collections in My Library, depth-first with nesting depth for indent. */
+function getAllCollections(): Array<{
+  key: string;
+  name: string;
+  depth: number;
+}> {
+  const out: Array<{ key: string; name: string; depth: number }> = [];
+  const walk = (collections: any[], depth: number) => {
+    for (const collection of collections || []) {
+      out.push({ key: collection.key, name: collection.name, depth });
+      walk(
+        (Zotero.Collections as any).getByParent(collection.id) || [],
+        depth + 1,
+      );
+    }
+  };
+  walk(
+    (Zotero.Collections as any).getByLibrary(Zotero.Libraries.userLibraryID) ||
+      [],
+    0,
+  );
+  return out;
+}
+
+/**
+ * Builds the collection checkbox list. Checked collections are the watch
+ * filter; nothing checked means every collection is processed.
+ */
+function refreshCollectionList(window: Window) {
+  const container = window.document.querySelector(
+    `#zotero-prefpane-${config.addonRef}-collection-list`,
+  ) as HTMLElement | null;
+  if (!container) {
+    return;
+  }
+  const checkedKeys = new Set(
+    String(getPref("watchedCollectionKeys") || "")
+      .split(",")
+      .map((key) => key.trim())
+      .filter(Boolean),
+  );
+  const doc = window.document as any;
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+  for (const collection of getAllCollections()) {
+    const box = doc.createXULElement("checkbox");
+    box.setAttribute("label", collection.name);
+    box.setAttribute("data-collection-key", collection.key);
+    box.setAttribute("native", "true");
+    if (checkedKeys.has(collection.key)) {
+      box.setAttribute("checked", "true");
+    }
+    box.style.marginLeft = `${collection.depth * 16}px`;
+    box.addEventListener("command", () => saveCollectionChecks(window));
+    container.appendChild(box);
+  }
+}
+
+function saveCollectionChecks(window: Window) {
+  const container = window.document.querySelector(
+    `#zotero-prefpane-${config.addonRef}-collection-list`,
+  ) as HTMLElement | null;
+  if (!container) {
+    return;
+  }
+  const keys: string[] = [];
+  container
+    .querySelectorAll("checkbox[data-collection-key]")
+    .forEach((box: any) => {
+      if (box.checked) {
+        keys.push(String(box.getAttribute("data-collection-key")));
+      }
+    });
+  setPref("watchedCollectionKeys" as any, keys.join(",") as any);
+  // Selection is key-based now; clear the legacy name filter so it cannot
+  // resurrect a stale match.
+  setPref("watchedCollection" as any, "" as any);
+  PaperFlowPlugin.setStatusMessage(
+    keys.length
+      ? `Watching ${keys.length} collection(s); items outside them are ignored.`
+      : "No collection checked — Paper Flow processes items from all collections.",
+  );
+}
+
+function setCollectionChecks(window: Window, checked: boolean) {
+  const container = window.document.querySelector(
+    `#zotero-prefpane-${config.addonRef}-collection-list`,
+  ) as HTMLElement | null;
+  if (!container) {
+    return;
+  }
+  container
+    .querySelectorAll("checkbox[data-collection-key]")
+    .forEach((box: any) => {
+      box.checked = checked;
+    });
+  saveCollectionChecks(window);
 }
 
 function setPromptOverride(window: Window, value: string) {

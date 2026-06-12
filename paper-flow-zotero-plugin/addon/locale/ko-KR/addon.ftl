@@ -11,3 +11,5 @@ effort-default = 기본값
 config-line = 현재 구성: { $tool } · 모델 { $model } · 추론 강도 { $effort }
 config-context = · 컨텍스트 { $context }
 pick-workspace = paper-notion-flow 작업 공간 폴더 선택
+reveal = 표시
+conceal = 숨기기
