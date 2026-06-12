@@ -66,3 +66,4 @@ pref-sync-notes =
     .label = Zotero ノートを Notion 子ページに同期
 pref-archive-preview =
     .label = 削除項目のクリーンアップ前にプレビュー
+pref-browse = 参照…

@@ -10,3 +10,4 @@ cli-unknown = CLI バージョン状態を確認できません。「Paper Flow 
 effort-default = 既定
 config-line = 現在の設定:{ $tool } · モデル { $model } · 推論強度 { $effort }
 config-context = · コンテキスト { $context }
+pick-workspace = paper-notion-flow ワークスペースフォルダーを選択

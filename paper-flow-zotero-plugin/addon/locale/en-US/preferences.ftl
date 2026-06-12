@@ -66,3 +66,4 @@ pref-sync-notes =
     .label = Sync Zotero notes to a Notion child page
 pref-archive-preview =
     .label = Preview deleted-item cleanup before archiving Notion pages
+pref-browse = Browse…

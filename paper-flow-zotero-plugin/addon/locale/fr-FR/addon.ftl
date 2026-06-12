@@ -10,3 +10,4 @@ cli-unknown = État de version du CLI inconnu — lancez « Vérifier l'environn
 effort-default = Par défaut
 config-line = Configuration : { $tool } · modèle { $model } · effort { $effort }
 config-context = · contexte { $context }
+pick-workspace = Sélectionnez le dossier de l'espace de travail paper-notion-flow

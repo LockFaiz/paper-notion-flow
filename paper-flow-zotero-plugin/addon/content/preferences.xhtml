@@ -243,12 +243,21 @@
         for="zotero-prefpane-__addonRef__-workspace-path"
         data-l10n-id="pref-workspace-path"
       ></html:label>
-      <html:input
-        class="pf-input"
-        type="text"
-        id="zotero-prefpane-__addonRef__-workspace-path"
-        preference="workspacePath"
-      ></html:input>
+      <hbox align="center">
+        <html:input
+          class="pf-input"
+          type="text"
+          id="zotero-prefpane-__addonRef__-workspace-path"
+          preference="workspacePath"
+          style="flex: 1"
+        ></html:input>
+        <html:button
+          class="pf-btn"
+          id="zotero-prefpane-__addonRef__-workspace-browse"
+          data-l10n-id="pref-browse"
+          style="margin: 0 0 0 8px; white-space: nowrap"
+        ></html:button>
+      </hbox>
     </vbox>
     <vbox class="pf-field">
       <html:label

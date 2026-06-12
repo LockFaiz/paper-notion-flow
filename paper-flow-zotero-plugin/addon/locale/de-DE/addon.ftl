@@ -10,3 +10,4 @@ cli-unknown = CLI-Versionsstatus unbekannt — führe "Paper Flow Umgebung prüf
 effort-default = Standard
 config-line = Aktuelle Konfiguration: { $tool } · Modell { $model } · Effort { $effort }
 config-context = · Kontext { $context }
+pick-workspace = Wähle den paper-notion-flow Workspace-Ordner

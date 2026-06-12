@@ -164,6 +164,32 @@ function bindPrefEvents(window: Window) {
     );
   });
 
+  onClick(window, "workspace-browse", () => {
+    void (async () => {
+      // Zotero 7's native folder picker; returns an OS-style path which the
+      // runtime-aware conversion maps to WSL form automatically when needed.
+      const { FilePicker } = (
+        ztoolkit.getGlobal("ChromeUtils") as any
+      ).importESModule("chrome://zotero/content/modules/filePicker.mjs");
+      const picker = new FilePicker();
+      picker.init(
+        window as any,
+        getString("pick-workspace" as any),
+        picker.modeGetFolder,
+      );
+      if ((await picker.show()) === picker.returnOK && picker.file) {
+        setPref("workspacePath", String(picker.file) as any);
+        syncManagedPreferenceUI(window);
+        const input = window.document.querySelector(
+          `#zotero-prefpane-${config.addonRef}-workspace-path`,
+        ) as HTMLInputElement | null;
+        if (input) {
+          input.value = String(picker.file);
+        }
+      }
+    })();
+  });
+
   onClick(window, "check-ai", () => {
     void withBusy(window, () => PaperFlowPlugin.checkAiSetup());
   });

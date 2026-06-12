@@ -66,3 +66,4 @@ pref-sync-notes =
     .label = Zotero 노트를 Notion 하위 페이지로 동기화
 pref-archive-preview =
     .label = 삭제 항목 정리 전에 미리 보기
+pref-browse = 찾아보기…

@@ -66,3 +66,4 @@ pref-sync-notes =
     .label = 同步 Zotero 笔记到 Notion 子页面
 pref-archive-preview =
     .label = 清理已删除条目前先预览
+pref-browse = 浏览…

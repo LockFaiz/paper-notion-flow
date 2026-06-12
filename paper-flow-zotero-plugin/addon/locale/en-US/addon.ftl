@@ -10,3 +10,4 @@ cli-unknown = CLI version status unknown — run "Check Paper Flow setup" for de
 effort-default = Default
 config-line = Current config: { $tool } · model { $model } · effort { $effort }
 config-context = · context { $context }
+pick-workspace = Select the paper-notion-flow workspace folder

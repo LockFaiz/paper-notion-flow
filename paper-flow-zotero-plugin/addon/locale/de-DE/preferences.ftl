@@ -66,3 +66,4 @@ pref-sync-notes =
     .label = Zotero-Notizen in eine Notion-Unterseite synchronisieren
 pref-archive-preview =
     .label = Bereinigung gelöschter Einträge vor dem Archivieren ansehen
+pref-browse = Durchsuchen…
