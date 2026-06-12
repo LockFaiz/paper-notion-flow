@@ -5,11 +5,6 @@ description = "Sync Zotero papers to Notion and generate AI reading guides with 
 readme = "README.md"
 requires-python = ">=3.11"
 license = "AGPL-3.0-or-later"
-
-[project.urls]
-Homepage = "https://github.com/LockFaiz/paper-notion-flow"
-Repository = "https://github.com/LockFaiz/paper-notion-flow"
-Issues = "https://github.com/LockFaiz/paper-notion-flow/issues"
 dependencies = [
     "notion-client>=2.4.0",
     "openai>=2.0.0",
@@ -17,6 +12,11 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "requests>=2.32.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/LockFaiz/paper-notion-flow"
+Repository = "https://github.com/LockFaiz/paper-notion-flow"
+Issues = "https://github.com/LockFaiz/paper-notion-flow/issues"
 
 [project.scripts]
 paper-notion-flow = "paper_notion_flow.cli:main"
