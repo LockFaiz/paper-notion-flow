@@ -27,7 +27,7 @@
 | 运行环境 | `自动`(Windows→WSL,macOS/Linux→本机)、`本机 shell`、`WSL`。WSL 模式会剔除所有 Windows `/mnt/*` 路径——CLI 必须装在发行版内。 |
 | 论文解读语言 | 解读输出语言(七种)。 |
 | 工作区路径 | 含本仓库 `pyproject.toml` 的文件夹,用所选运行环境的路径风格(WSL:`/mnt/c/...`)。 |
-| Notion token / 数据库 ID | 覆盖工作区 `.env`;留空则回退使用 `.env`。 |
+| Notion token / 数据库 ID | 覆盖工作区 `.env`;留空则回退使用 `.env`。数据库 ID(非机密)会随 Zotero 账户跨设备同步;token 永不同步——每台设备粘贴一次即可,若怀疑泄露可在 notion.so/my-integrations 一键重置。 |
 | AI 工具 | Codex CLI 或 Claude Code。 |
 | 模型 | 下拉来自 CLI **官方本地缓存**(claude:`/model` 菜单缓存,含限时模型精确 id;codex:`models_cache.json`),也可手动输入任意模型名。留空 = CLI 默认。Claude 别名(`opus`/`sonnet`/`haiku`)永远指向最新版。 |
 | 推理强度 | codex 的档位跟随所选模型支持的档位;留空 = 默认。 |

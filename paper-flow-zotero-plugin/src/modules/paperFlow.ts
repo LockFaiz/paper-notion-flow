@@ -1348,6 +1348,49 @@ export class PaperFlowPlugin {
     return String(getPref("notionDatabaseId") || "").trim();
   }
 
+  // ---- Database-id roaming via the Zotero account ------------------------
+  // Only the database ID syncs (it appears in every share URL and is not a
+  // secret). The Notion token is deliberately NEVER written to SyncedSettings.
+  private static readonly SYNCED_DB_KEY = "paperflow.notionDatabaseId";
+
+  /** Pushes the locally configured database id into Zotero synced settings. */
+  static pushDatabaseIdToSync(value: string) {
+    try {
+      const synced = (Zotero as any).SyncedSettings;
+      if (synced?.set) {
+        void synced.set(
+          Zotero.Libraries.userLibraryID,
+          this.SYNCED_DB_KEY,
+          String(value || "").trim(),
+        );
+      }
+    } catch (error) {
+      ztoolkit.log(`Paper Flow could not push synced database id: ${error}`);
+    }
+  }
+
+  /** Adopts a synced database id on startup when none is configured locally. */
+  static pullDatabaseIdFromSync() {
+    try {
+      if (this.getNotionDatabaseId()) {
+        return;
+      }
+      const synced = (Zotero as any).SyncedSettings;
+      const value = synced?.get?.(
+        Zotero.Libraries.userLibraryID,
+        this.SYNCED_DB_KEY,
+      );
+      if (typeof value === "string" && value.trim()) {
+        setPref("notionDatabaseId", value.trim());
+        this.setStatusMessage(
+          "Adopted the Notion database ID synced from your Zotero account.",
+        );
+      }
+    } catch (error) {
+      ztoolkit.log(`Paper Flow could not pull synced database id: ${error}`);
+    }
+  }
+
   /**
    * Env assignments for Notion credentials, omitted when empty: an exported
    * empty NOTION_TOKEN= would mask a valid value in the workspace .env,

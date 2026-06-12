@@ -27,7 +27,7 @@ Open the settings via **Tools → Paper Flow Settings** in Zotero (or Edit → S
 | Runtime | `Auto` (Windows→WSL, macOS/Linux→native), `Native shell`, or `WSL`. In WSL mode all Windows `/mnt/*` paths are stripped — the CLI must be installed inside the distro. |
 | Reading-guide language | Output language of the guide (7 languages). |
 | Workspace path | The folder containing this repo's `pyproject.toml`. Use the runtime's path style (WSL: `/mnt/c/...`). |
-| Notion token / database ID | Override the workspace `.env`. Leave empty to use `.env` instead. |
+| Notion token / database ID | Override the workspace `.env`. Leave empty to use `.env` instead. The database ID (not a secret) syncs across devices through your Zotero account; the token never syncs — paste it once per device, and regenerate it at notion.so/my-integrations if it ever leaks. |
 | AI tool | Codex CLI or Claude Code. |
 | Model | Dropdown is populated from the CLIs' **official local caches** (claude: `/model` menu cache incl. limited-time models with exact ids; codex: `models_cache.json`). You can also type any model name. Empty = CLI default. Claude aliases (`opus`/`sonnet`/`haiku`) always track the latest version. |
 | Reasoning effort | For codex, the levels offered follow the selected model's supported levels. Empty = default. |

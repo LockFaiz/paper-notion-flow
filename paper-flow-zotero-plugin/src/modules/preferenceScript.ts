@@ -325,6 +325,11 @@ function bindPrefEvents(window: Window) {
     if (inputNode) {
       const save = () => {
         setPref(prefName as any, inputNode.value as any);
+        if (prefName === "notionDatabaseId") {
+          // The database id (not a secret) roams with the Zotero account so
+          // new devices pick it up automatically; the token never syncs.
+          PaperFlowPlugin.pushDatabaseIdToSync(inputNode.value);
+        }
         syncManagedPreferenceUI(window);
       };
       inputNode.addEventListener("input", save);
