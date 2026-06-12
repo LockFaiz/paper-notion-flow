@@ -28,12 +28,12 @@ Releases are built automatically by CI from version tags — see [.github/workfl
 
 ## Source map
 
-| File | Responsibility |
-| --- | --- |
-| `src/modules/paperFlow.ts` | Core: notifier handling, command building/quoting per runtime, model discovery, CLI updates, setup check. |
-| `src/modules/preferenceScript.ts` | Preference pane wiring: banner, config line, dropdown rebuild rules, presets. |
-| `addon/content/preferences.xhtml` | Card-based settings UI. |
-| `addon/locale/*` | 7-language Fluent files (`addon.ftl` for runtime strings, `preferences.ftl` for the pane). |
+| File                              | Responsibility                                                                                            |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `src/modules/paperFlow.ts`        | Core: notifier handling, command building/quoting per runtime, model discovery, CLI updates, setup check. |
+| `src/modules/preferenceScript.ts` | Preference pane wiring: banner, config line, dropdown rebuild rules, presets.                             |
+| `addon/content/preferences.xhtml` | Card-based settings UI.                                                                                   |
+| `addon/locale/*`                  | 7-language Fluent files (`addon.ftl` for runtime strings, `preferences.ftl` for the pane).                |
 
 ## License
 
