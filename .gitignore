@@ -21,3 +21,6 @@ logs/
 tsconfig.tsbuildinfo
 
 *.xpi
+
+# Raw screenshot staging folder (curated copies live in docs/images/)
+/Image/

@@ -25,6 +25,10 @@
 6. 打开 **工具 → Paper Flow 设置**:填工作区路径(本仓库文件夹)、Notion token、数据库 ID,选择 AI 工具,点 **检查 Paper Flow 环境**——所有标记应为 `OK`。
 7. 在 Zotero 里右键任意论文 → **Paper Flow:处理当前选中文献**,解读会出现在对应 Notion 页面的子页里。
 
+## 界面预览
+
+![Paper Flow 设置页](docs/images/plugin-settings-zh.png)
+
 ## 功能一览
 
 - **自动化**:Zotero 新增/修改条目自动触发;可限定监听某个收藏夹;内容未变化(如同步回写)自动跳过,不重复烧 token。

@@ -432,8 +432,8 @@ export class PaperFlowPlugin {
   static async checkAiSetup() {
     const modeLabel = this.useCustomCommands() ? "CUSTOM" : "MANAGED";
     const selectedAi = this.getResolvedAiCommand();
-    const workspacePath = this.getWorkspacePath();
     const runtime = this.getRuntimeMode();
+    const workspacePath = this.resolveWorkspacePath(runtime);
     // Write the Python probe to a file so the command line stays short. Inlining
     // it via `python -c '<...>'` overflows cmd.exe's line limit on Windows/WSL.
     const pythonCheck = await this.writeRuntimeTempFile(
@@ -1226,11 +1226,11 @@ export class PaperFlowPlugin {
     },
     syncMode: SyncMode,
   ) {
-    const workspace = this.getWorkspacePath();
+    const runtime = this.getRuntimeMode();
+    const workspace = this.resolveWorkspacePath(runtime);
     if (!workspace) {
       return "";
     }
-    const runtime = this.getRuntimeMode();
     const collectionName = collection.name || collection.key;
     if (runtime === "native-windows") {
       return [
@@ -1315,6 +1315,29 @@ export class PaperFlowPlugin {
 
   private static getWorkspacePath() {
     return String(getPref("workspacePath") || "").trim();
+  }
+
+  /**
+   * Workspace path converted to the ACTIVE runtime's style, so one stored
+   * value keeps working when the user switches between WSL and native
+   * Windows: /mnt/c/foo <-> C:\foo. Native Unix uses the value as typed.
+   */
+  private static resolveWorkspacePath(runtime: RuntimeMode): string {
+    const raw = this.getWorkspacePath();
+    if (!raw) {
+      return raw;
+    }
+    if (runtime === "native-windows") {
+      const match = raw.match(/^\/mnt\/([a-z])(\/.*)?$/i);
+      if (match) {
+        return `${match[1].toUpperCase()}:${(match[2] || "/").replace(/\//g, "\\")}`;
+      }
+      return raw;
+    }
+    if (runtime === "wsl" && /^[A-Za-z]:[\\/]/.test(raw)) {
+      return this.toWslPath(raw);
+    }
+    return raw;
   }
 
   private static getNotionToken() {
@@ -1559,7 +1582,8 @@ export class PaperFlowPlugin {
     current: string;
     latest: string;
   } | null> {
-    const workspace = this.getWorkspacePath();
+    const runtime = this.getRuntimeMode();
+    const workspace = this.resolveWorkspacePath(runtime);
     if (!workspace) {
       this.setStatusMessage(
         "Set the workspace path first; model discovery runs through `uv run python` in the workspace.",
@@ -1567,7 +1591,6 @@ export class PaperFlowPlugin {
       return null;
     }
     const tool = this.getAiTool();
-    const runtime = this.getRuntimeMode();
     const script = this.buildModelDiscoveryScript(tool);
     const files = await this.writeRuntimeTempFile(
       "paper-flow-model-discovery",
@@ -1765,11 +1788,11 @@ export class PaperFlowPlugin {
     promptFileWindows: string;
     skipAi: boolean;
   }): { runtime: RuntimeMode; inner?: string; full?: string } | null {
-    const workspace = this.getWorkspacePath();
+    const runtime = this.getRuntimeMode();
+    const workspace = this.resolveWorkspacePath(runtime);
     if (!workspace) {
       return null;
     }
-    const runtime = this.getRuntimeMode();
     if (runtime === "native-windows") {
       return {
         runtime,
@@ -1816,11 +1839,11 @@ export class PaperFlowPlugin {
   }
 
   private static async buildManagedDeleteCommand(dryRun: boolean) {
-    const workspace = this.getWorkspacePath();
+    const runtime = this.getRuntimeMode();
+    const workspace = this.resolveWorkspacePath(runtime);
     if (!workspace) {
       return "";
     }
-    const runtime = this.getRuntimeMode();
     if (runtime === "native-windows") {
       return [
         this.buildWindowsBootstrap(),

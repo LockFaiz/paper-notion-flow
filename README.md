@@ -27,6 +27,10 @@ It is designed as a single local workflow: Paper Flow reads Zotero, writes paper
 
 Full settings reference and troubleshooting: [docs/MANUAL.md](docs/MANUAL.md) ([中文手册](docs/MANUAL.zh-CN.md)).
 
+## Screenshots
+
+![Paper Flow settings pane](docs/images/plugin-settings-en.png)
+
 ## What It Does
 
 - Watches Zotero item events through the Paper Flow Zotero plugin.
