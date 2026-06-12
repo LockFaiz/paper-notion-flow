@@ -97,8 +97,24 @@ export class PaperFlowPlugin {
     });
   }
 
+  /**
+   * Removes any existing DOM nodes with the given menu id from all main
+   * windows. Older plugin versions leaked their menu items on reinstall
+   * (their shutdown unregistered a recreated toolkit instance that had never
+   * registered anything), so sweeping before registering also heals
+   * duplicates left behind by an upgrade-from-old-version.
+   */
+  private static removeStaleMenuNodes(id: string) {
+    for (const win of Zotero.getMainWindows()) {
+      win.document
+        .querySelectorAll(`[id="${id}"]`)
+        .forEach((node: Element) => node.remove());
+    }
+  }
+
   /** Adds a "Paper Flow Settings" shortcut to the Tools menu. */
   static registerToolsMenu() {
+    this.removeStaleMenuNodes("zotero-tools-paperflow-settings");
     ztoolkit.Menu.register("menuTools", {
       tag: "menuitem",
       id: "zotero-tools-paperflow-settings",
@@ -207,6 +223,8 @@ export class PaperFlowPlugin {
   }
 
   static registerMenus() {
+    this.removeStaleMenuNodes("zotero-itemmenu-paperflow-process");
+    this.removeStaleMenuNodes("zotero-itemmenu-paperflow-metadata");
     ztoolkit.Menu.register("item", {
       tag: "menuitem",
       id: "zotero-itemmenu-paperflow-process",

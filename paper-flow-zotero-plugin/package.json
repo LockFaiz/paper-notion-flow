@@ -1,7 +1,7 @@
 {
   "name": "paper-flow-zotero-plugin",
   "type": "module",
-  "version": "0.3.3",
+  "version": "0.3.5",
   "description": "Zotero plugin for automatically pushing papers through Paper Flow into Notion reading guides.",
   "config": {
     "addonName": "Paper Flow",

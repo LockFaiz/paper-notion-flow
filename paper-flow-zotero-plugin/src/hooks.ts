@@ -32,8 +32,10 @@ async function onStartup() {
 }
 
 async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
-  addon.data.ztoolkit = createZToolkit();
-
+  // Do NOT recreate the toolkit here: menus were registered on the instance
+  // created at startup, and replacing it orphaned those registrations —
+  // unregisterAll() on the new instance never removed them, so every
+  // reinstall stacked a duplicate Tools-menu entry until the next restart.
   win.MozXULElement.insertFTLIfNeeded(
     `${addon.data.config.addonRef}-mainWindow.ftl`,
   );
