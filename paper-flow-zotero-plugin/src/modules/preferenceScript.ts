@@ -1,9 +1,13 @@
 import { config } from "../../package.json";
-import { getString } from "../utils/locale";
+import { getString, initLocale } from "../utils/locale";
 import { getPref, setPref } from "../utils/prefs";
 import { PaperFlowPlugin } from "./paperFlow";
 
 export async function registerPrefsScripts(window: Window) {
+  // Rebuild the Fluent bundle so getString-based strings (banner, config line)
+  // follow a Zotero language switch like the data-l10n-id strings do — the
+  // bundle cached at startup keeps the old locale otherwise.
+  initLocale();
   addon.data.prefs = {
     window,
     updateStatus: (message: string) => {
