@@ -328,7 +328,7 @@ function bindPrefEvents(window: Window) {
         if (prefName === "notionDatabaseId") {
           // The database id (not a secret) roams with the Zotero account so
           // new devices pick it up automatically; the token never syncs.
-          PaperFlowPlugin.pushDatabaseIdToSync(inputNode.value);
+          void PaperFlowPlugin.pushConfigToZotero();
         }
         syncManagedPreferenceUI(window);
       };
@@ -394,6 +394,7 @@ function bindPromptPresetEvents(window: Window) {
       presets.value = name;
     }
     PaperFlowPlugin.setStatusMessage(`Saved prompt preset: ${name}`);
+    void PaperFlowPlugin.pushConfigToZotero();
   });
 
   onClick(window, "set-default-preset", () => {
@@ -414,6 +415,7 @@ function bindPromptPresetEvents(window: Window) {
     PaperFlowPlugin.setStatusMessage(
       `Default prompt set to "${name}". It is re-applied on every startup.`,
     );
+    void PaperFlowPlugin.pushConfigToZotero();
   });
 
   onClick(window, "delete-preset", () => {
@@ -426,6 +428,7 @@ function bindPromptPresetEvents(window: Window) {
     PaperFlowPlugin.deletePromptPreset(name);
     refreshPromptPresets(window);
     PaperFlowPlugin.setStatusMessage(`Deleted prompt preset: ${name}`);
+    void PaperFlowPlugin.pushConfigToZotero();
   });
 }
 

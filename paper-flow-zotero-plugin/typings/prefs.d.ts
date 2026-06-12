@@ -33,6 +33,7 @@ declare namespace _ZoteroTypes {
       "autoUpdateCli": boolean;
       "lastUpdateCheck": string;
       "modelOptionsCache": string;
+      "configSyncTs": string;
       "aiExtraArgs": string;
       "commandTemplate": string;
       "deleteCommandTemplate": string;

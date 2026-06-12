@@ -1348,46 +1348,111 @@ export class PaperFlowPlugin {
     return String(getPref("notionDatabaseId") || "").trim();
   }
 
-  // ---- Database-id roaming via the Zotero account ------------------------
-  // Only the database ID syncs (it appears in every share URL and is not a
-  // secret). The Notion token is deliberately NEVER written to SyncedSettings.
-  private static readonly SYNCED_DB_KEY = "paperflow.notionDatabaseId";
+  // ---- Config roaming via a Zotero note -----------------------------------
+  // Settings that should follow the user across devices (database id, prompt
+  // presets, default preset) are stored as JSON inside a clearly-titled
+  // standalone note in My Library. Notes are first-class synced Zotero data,
+  // so this channel works wherever Zotero account sync works. The Notion
+  // token is deliberately NEVER included. Last writer wins via a timestamp.
+  private static readonly CONFIG_MARKER = "PAPERFLOW-CONFIG-V1";
 
-  /** Pushes the locally configured database id into Zotero synced settings. */
-  static pushDatabaseIdToSync(value: string) {
+  private static async findConfigNote(): Promise<Zotero.Item | null> {
+    const search = new Zotero.Search();
+    // Typed read-only, but assignable at runtime (standard Zotero pattern).
+    (search as any).libraryID = Zotero.Libraries.userLibraryID;
+    search.addCondition("itemType", "is", "note");
+    search.addCondition("note", "contains", this.CONFIG_MARKER);
+    const ids = await search.search();
+    if (!ids.length) {
+      return null;
+    }
+    return Zotero.Items.get(ids[0]) as Zotero.Item;
+  }
+
+  private static escapeHtml(value: string) {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  private static unescapeHtml(value: string) {
+    return value
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&");
+  }
+
+  /** Writes the roaming config into the synced note (creates it if needed). */
+  static async pushConfigToZotero() {
     try {
-      const synced = (Zotero as any).SyncedSettings;
-      if (synced?.set) {
-        void synced.set(
-          Zotero.Libraries.userLibraryID,
-          this.SYNCED_DB_KEY,
-          String(value || "").trim(),
-        );
+      const payload = {
+        databaseId: this.getNotionDatabaseId(),
+        promptPresets: this.getPromptPresets(),
+        defaultPromptName: this.getDefaultPromptName(),
+        updatedAt: Date.now(),
+      };
+      const html = [
+        `<p>${this.CONFIG_MARKER} — Paper Flow settings sync. Do not edit or delete; this note carries your database id and prompt presets to other devices via Zotero sync.</p>`,
+        `<pre>${this.escapeHtml(JSON.stringify(payload))}</pre>`,
+      ].join("\n");
+      let note = await this.findConfigNote();
+      if (!note) {
+        note = new Zotero.Item("note");
+        note.libraryID = Zotero.Libraries.userLibraryID;
       }
+      note.setNote(html);
+      await note.saveTx();
+      setPref("configSyncTs", String(payload.updatedAt));
+      ztoolkit.log("Paper Flow pushed roaming config to the sync note.");
     } catch (error) {
-      ztoolkit.log(`Paper Flow could not push synced database id: ${error}`);
+      ztoolkit.log(`Paper Flow could not push the config note: ${error}`);
     }
   }
 
-  /** Adopts a synced database id on startup when none is configured locally. */
-  static pullDatabaseIdFromSync() {
+  /**
+   * Adopts config from the synced note when it is newer than what this device
+   * last saw. Returns true when anything was adopted.
+   */
+  static async pullConfigFromZotero(): Promise<boolean> {
     try {
-      if (this.getNotionDatabaseId()) {
-        return;
+      const note = await this.findConfigNote();
+      if (!note) {
+        return false;
       }
-      const synced = (Zotero as any).SyncedSettings;
-      const value = synced?.get?.(
-        Zotero.Libraries.userLibraryID,
-        this.SYNCED_DB_KEY,
-      );
-      if (typeof value === "string" && value.trim()) {
-        setPref("notionDatabaseId", value.trim());
-        this.setStatusMessage(
-          "Adopted the Notion database ID synced from your Zotero account.",
+      const match = note.getNote().match(/<pre>([\s\S]*?)<\/pre>/);
+      if (!match) {
+        return false;
+      }
+      const payload = JSON.parse(this.unescapeHtml(match[1]));
+      const remoteTs = Number(payload.updatedAt || 0);
+      const localTs = Number(getPref("configSyncTs") || "0");
+      if (!Number.isFinite(remoteTs) || remoteTs <= localTs) {
+        return false;
+      }
+      if (typeof payload.databaseId === "string" && payload.databaseId) {
+        setPref("notionDatabaseId", payload.databaseId);
+      }
+      if (Array.isArray(payload.promptPresets)) {
+        setPref(
+          "promptPresets",
+          JSON.stringify(
+            payload.promptPresets.slice(0, this.MAX_PROMPT_PRESETS),
+          ),
         );
       }
+      if (typeof payload.defaultPromptName === "string") {
+        setPref("defaultPromptName", payload.defaultPromptName);
+        this.applyDefaultPrompt();
+      }
+      setPref("configSyncTs", String(remoteTs));
+      this.setStatusMessage(
+        "Adopted Paper Flow settings (database id + prompt presets) synced from your Zotero account.",
+      );
+      return true;
     } catch (error) {
-      ztoolkit.log(`Paper Flow could not pull synced database id: ${error}`);
+      ztoolkit.log(`Paper Flow could not pull the config note: ${error}`);
+      return false;
     }
   }
 

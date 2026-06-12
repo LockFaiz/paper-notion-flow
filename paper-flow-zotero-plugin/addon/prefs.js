@@ -24,6 +24,7 @@ pref("aiEffort", "");
 pref("autoUpdateCli", true);
 pref("lastUpdateCheck", "0");
 pref("modelOptionsCache", "{}");
+pref("configSyncTs", "0");
 pref("aiExtraArgs", "");
 pref("commandTemplate", "");
 pref("deleteCommandTemplate", "");

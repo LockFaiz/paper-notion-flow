@@ -18,8 +18,9 @@ async function onStartup() {
   PaperFlowPlugin.registerToolsMenu();
   // Re-apply the chosen default prompt so it survives xpi updates / restarts.
   PaperFlowPlugin.applyDefaultPrompt();
-  // Adopt a database id synced from the Zotero account on fresh installs.
-  PaperFlowPlugin.pullDatabaseIdFromSync();
+  // Adopt roaming config (database id + prompt presets) carried by the
+  // synced Zotero note, if a newer version arrived from another device.
+  void PaperFlowPlugin.pullConfigFromZotero();
   // Optionally keep the selected CLI up to date (throttled, background).
   PaperFlowPlugin.autoUpdateOnStartup();
 
