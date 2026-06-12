@@ -7,7 +7,9 @@ export default defineConfig({
   name: pkg.config.addonName,
   id: pkg.config.addonID,
   namespace: pkg.config.addonRef,
-  updateURL: `https://github.com/{{owner}}/{{repo}}/releases/download/release/${
+  // "latest/download" always resolves to the newest release's assets, so
+  // installed plugins see updates without us maintaining a rolling release.
+  updateURL: `https://github.com/{{owner}}/{{repo}}/releases/latest/download/${
     pkg.version.includes("-") ? "update-beta.json" : "update.json"
   }`,
   xpiDownloadLink:
