@@ -1,0 +1,508 @@
+<linkset>
+  <html:link rel="localization" href="__addonRef__-preferences.ftl" />
+</linkset>
+<groupbox
+  class="pf-root"
+  onload="Zotero.__addonInstance__.hooks.onPrefsEvent('load', { window })"
+>
+  <html:style>
+    .pf-root { --pf-accent: #6366f1; --pf-accent-2: #8b5cf6; --pf-accent-hover:
+    #4f46e5; --pf-bg: #ffffff; --pf-card-bg: #f8fafc; --pf-card-border: #e2e8f0;
+    --pf-text: #0f172a; --pf-muted: #64748b; --pf-code-bg: #f1f5f9; --pf-ok:
+    #16a34a; --pf-err: #dc2626; -moz-box-orient: vertical; padding: 4px 2px
+    12px; } @media (prefers-color-scheme: dark) { .pf-root { --pf-bg: #1f1f23;
+    --pf-card-bg: #27272b; --pf-card-border: #3f3f46; --pf-text: #e4e4e7;
+    --pf-muted: #a1a1aa; --pf-code-bg: #161619; --pf-accent: #818cf8;
+    --pf-accent-2: #a78bfa; --pf-accent-hover: #a5b4fc; } } .pf-hero {
+    background: linear-gradient(135deg, var(--pf-accent), var(--pf-accent-2));
+    border-radius: 14px; padding: 16px 20px; margin: 0 0 16px; -moz-box-orient:
+    vertical; } .pf-hero-title { margin: 0; color: #ffffff; font-size: 17px;
+    font-weight: 700; } .pf-hero-sub { margin: 6px 0 0; color: rgba(255, 255,
+    255, 0.9); font-size: 12px; line-height: 1.5; } .pf-note { margin: 0 2px
+    16px; font-size: 12px; color: var(--pf-muted); line-height: 1.5; } .pf-card
+    { background: var(--pf-card-bg); border: 1px solid var(--pf-card-border);
+    border-radius: 12px; padding: 14px 16px 16px; margin: 0 0 14px;
+    -moz-box-orient: vertical; } .pf-card-title { margin: 0 0 2px; font-size:
+    13.5px; font-weight: 700; color: var(--pf-text); } .pf-card-desc { margin:
+    2px 0 12px; font-size: 11.5px; color: var(--pf-muted); line-height: 1.5; }
+    .pf-field { -moz-box-orient: vertical; margin: 0 0 10px; } .pf-field-label {
+    font-size: 12px; font-weight: 600; color: var(--pf-text); margin: 0 0 4px; }
+    .pf-input, .pf-textarea { box-sizing: border-box; width: 100%; background:
+    var(--pf-bg); color: var(--pf-text); border: 1px solid
+    var(--pf-card-border); border-radius: 8px; padding: 7px 10px; font-size:
+    12px; font-family: inherit; } .pf-input:focus, .pf-textarea:focus {
+    border-color: var(--pf-accent); outline: 1px solid var(--pf-accent); }
+    .pf-input-sm { width: 120px; } .pf-mono { white-space: pre-wrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11.5px; background: var(--pf-code-bg); line-height: 1.5; }
+    .pf-checks { -moz-box-orient: vertical; } .pf-checks > checkbox { margin:
+    3px 0; } .pf-row { -moz-box-align: center; margin: 0 0 8px; } .pf-row >
+    .pf-field-label { min-width: 200px; margin: 0 10px 0 0; } .pf-toolbar {
+    -moz-box-orient: horizontal; flex-wrap: wrap; margin-top: 4px; } .pf-btn {
+    -moz-appearance: none; appearance: none; border: 1px solid
+    var(--pf-card-border); background: var(--pf-bg); color: var(--pf-text);
+    border-radius: 8px; padding: 7px 14px; margin: 4px 8px 4px 0; font-size:
+    12px; font-weight: 600; cursor: pointer; } .pf-btn:hover { border-color:
+    var(--pf-accent); color: var(--pf-accent-hover); } .pf-btn-primary {
+    background: var(--pf-accent); border-color: var(--pf-accent); color:
+    #ffffff; } .pf-btn-primary:hover { background: var(--pf-accent-hover);
+    border-color: var(--pf-accent-hover); color: #ffffff; } .pf-busybar {
+    height: 3px; border-radius: 3px; margin: 0 0 12px; background:
+    linear-gradient( 90deg, transparent, var(--pf-accent), transparent );
+    background-size: 200% 100%; opacity: 0; transition: opacity 0.2s ease; }
+    .pf-root[data-busy="true"] .pf-busybar { opacity: 1; animation: pf-slide
+    1.1s linear infinite; } .pf-root[data-busy="true"] .pf-btn { opacity: 0.55;
+    pointer-events: none; } @keyframes pf-slide { from { background-position:
+    200% 0; } to { background-position: -200% 0; } } .pf-cli-banner { display:
+    none; padding: 8px 12px; border-radius: 8px; margin: 0 0 12px; font-size:
+    12px; font-weight: 600; line-height: 1.5; }
+    .pf-cli-banner[data-state="checking"] { display: block; background:
+    var(--pf-code-bg); color: var(--pf-muted); } .pf-cli-banner[data-state="ok"]
+    { display: block; background: rgba(22, 163, 74, 0.12); color: var(--pf-ok);
+    border: 1px solid rgba(22, 163, 74, 0.35); }
+    .pf-cli-banner[data-state="outdated"] { display: block; background:
+    rgba(220, 38, 38, 0.1); color: var(--pf-err); border: 1px solid rgba(220,
+    38, 38, 0.35); } .pf-cli-banner[data-state="unknown"] { display: block;
+    background: var(--pf-code-bg); color: var(--pf-muted); } .pf-config-line {
+    padding: 6px 12px; border-radius: 8px; margin: 0 0 12px; font-size: 12px;
+    font-weight: 600; color: var(--pf-text); background: var(--pf-code-bg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </html:style>
+
+  <vbox class="pf-hero">
+    <html:h2 class="pf-hero-title" data-l10n-id="pref-title"></html:h2>
+    <html:p class="pf-hero-sub" data-l10n-id="pref-intro"></html:p>
+  </vbox>
+  <html:div
+    class="pf-busybar"
+    id="zotero-prefpane-__addonRef__-busybar"
+  ></html:div>
+  <html:p class="pf-note" data-l10n-id="pref-notero-note"></html:p>
+
+  <vbox class="pf-card">
+    <html:div
+      class="pf-card-title"
+      data-l10n-id="pref-section-workflow"
+    ></html:div>
+    <html:div class="pf-card-desc" data-l10n-id="pref-managed-note"></html:div>
+    <vbox class="pf-checks">
+      <checkbox
+        id="zotero-prefpane-__addonRef__-enabled"
+        preference="enabled"
+        data-l10n-id="pref-enabled"
+      />
+      <checkbox
+        id="zotero-prefpane-__addonRef__-auto-sync"
+        preference="autoSync"
+        data-l10n-id="pref-auto-sync"
+      />
+      <checkbox
+        id="zotero-prefpane-__addonRef__-show-notifications"
+        preference="showNotifications"
+        data-l10n-id="pref-show-notifications"
+      />
+      <checkbox
+        id="zotero-prefpane-__addonRef__-skip-unchanged"
+        preference="skipUnchanged"
+        data-l10n-id="pref-skip-unchanged"
+      />
+    </vbox>
+    <vbox class="pf-field">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-watched-collection"
+        data-l10n-id="pref-watched-collection"
+      ></html:label>
+      <html:input
+        class="pf-input"
+        type="text"
+        id="zotero-prefpane-__addonRef__-watched-collection"
+        preference="watchedCollection"
+      ></html:input>
+      <html:input
+        class="pf-input"
+        type="hidden"
+        id="zotero-prefpane-__addonRef__-watched-collection-keys"
+        preference="watchedCollectionKeys"
+      ></html:input>
+    </vbox>
+    <hbox class="pf-toolbar">
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-use-selected-collection"
+        data-l10n-id="pref-use-selected-collection"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-clear-watched-collection"
+        data-l10n-id="pref-clear-watched-collection"
+      ></html:button>
+    </hbox>
+    <vbox class="pf-checks">
+      <checkbox
+        id="zotero-prefpane-__addonRef__-sync-notes"
+        preference="syncNotes"
+        data-l10n-id="pref-sync-notes"
+      />
+      <checkbox
+        id="zotero-prefpane-__addonRef__-archive-deleted-preview"
+        preference="archiveDeletedWithPreview"
+        data-l10n-id="pref-archive-preview"
+      />
+    </vbox>
+    <hbox class="pf-row">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-debounce-seconds"
+        data-l10n-id="pref-debounce-seconds"
+      ></html:label>
+      <html:input
+        class="pf-input pf-input-sm"
+        type="text"
+        id="zotero-prefpane-__addonRef__-debounce-seconds"
+        preference="debounceSeconds"
+      ></html:input>
+    </hbox>
+    <hbox class="pf-row">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-process-timeout"
+        data-l10n-id="pref-process-timeout"
+      ></html:label>
+      <html:input
+        class="pf-input pf-input-sm"
+        type="text"
+        id="zotero-prefpane-__addonRef__-process-timeout"
+        preference="processTimeoutSeconds"
+      ></html:input>
+    </hbox>
+  </vbox>
+
+  <vbox class="pf-card">
+    <html:div class="pf-card-title" data-l10n-id="pref-section-ai"></html:div>
+    <html:div
+      class="pf-card-desc"
+      data-l10n-id="pref-section-ai-desc"
+    ></html:div>
+    <html:div
+      class="pf-cli-banner"
+      id="zotero-prefpane-__addonRef__-cli-banner"
+    ></html:div>
+    <html:div
+      class="pf-config-line"
+      id="zotero-prefpane-__addonRef__-config-line"
+    ></html:div>
+    <hbox class="pf-row">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-execution-mode"
+        data-l10n-id="pref-execution-mode"
+      ></html:label>
+      <menulist id="zotero-prefpane-__addonRef__-execution-mode">
+        <menupopup>
+          <menuitem value="auto" data-l10n-id="pref-runtime-auto" />
+          <menuitem value="native" data-l10n-id="pref-runtime-native" />
+          <menuitem value="wsl" data-l10n-id="pref-runtime-wsl" />
+        </menupopup>
+      </menulist>
+    </hbox>
+    <hbox class="pf-row" id="zotero-prefpane-__addonRef__-wsl-row">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-wsl-distro"
+        data-l10n-id="pref-wsl-distro"
+      ></html:label>
+      <html:input
+        class="pf-input"
+        type="text"
+        id="zotero-prefpane-__addonRef__-wsl-distro"
+        preference="wslDistro"
+      ></html:input>
+    </hbox>
+    <hbox class="pf-row">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-guide-language"
+        data-l10n-id="pref-guide-language"
+      ></html:label>
+      <menulist id="zotero-prefpane-__addonRef__-guide-language">
+        <menupopup>
+          <menuitem value="zh-CN" label="中文" />
+          <menuitem value="en" label="English" />
+          <menuitem value="ja" label="日本語" />
+          <menuitem value="ko" label="한국어" />
+          <menuitem value="fr" label="Français" />
+          <menuitem value="de" label="Deutsch" />
+          <menuitem value="es" label="Español" />
+        </menupopup>
+      </menulist>
+    </hbox>
+    <vbox class="pf-field">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-workspace-path"
+        data-l10n-id="pref-workspace-path"
+      ></html:label>
+      <html:input
+        class="pf-input"
+        type="text"
+        id="zotero-prefpane-__addonRef__-workspace-path"
+        preference="workspacePath"
+      ></html:input>
+    </vbox>
+    <vbox class="pf-field">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-notion-token"
+        data-l10n-id="pref-notion-token"
+      ></html:label>
+      <html:input
+        class="pf-input"
+        type="password"
+        id="zotero-prefpane-__addonRef__-notion-token"
+        preference="notionToken"
+      ></html:input>
+    </vbox>
+    <vbox class="pf-field">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-notion-database-id"
+        data-l10n-id="pref-notion-database-id"
+      ></html:label>
+      <html:input
+        class="pf-input"
+        type="text"
+        id="zotero-prefpane-__addonRef__-notion-database-id"
+        preference="notionDatabaseId"
+      ></html:input>
+    </vbox>
+    <hbox class="pf-row">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-ai-tool"
+        data-l10n-id="pref-ai-tool"
+      ></html:label>
+      <menulist id="zotero-prefpane-__addonRef__-ai-tool">
+        <menupopup>
+          <menuitem value="codex" label="Codex CLI" />
+          <menuitem value="claude" label="Claude Code" />
+        </menupopup>
+      </menulist>
+    </hbox>
+    <hbox class="pf-row">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-ai-model"
+        data-l10n-id="pref-ai-model"
+      ></html:label>
+      <menulist id="zotero-prefpane-__addonRef__-ai-model" editable="true">
+        <menupopup />
+      </menulist>
+    </hbox>
+    <hbox class="pf-row">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-ai-effort"
+        data-l10n-id="pref-ai-effort"
+      ></html:label>
+      <menulist id="zotero-prefpane-__addonRef__-ai-effort">
+        <menupopup />
+      </menulist>
+    </hbox>
+    <vbox class="pf-checks">
+      <checkbox
+        id="zotero-prefpane-__addonRef__-auto-update-cli"
+        preference="autoUpdateCli"
+        data-l10n-id="pref-auto-update-cli"
+      />
+    </vbox>
+    <hbox class="pf-toolbar">
+      <html:button
+        class="pf-btn pf-btn-primary"
+        id="zotero-prefpane-__addonRef__-check-ai"
+        data-l10n-id="pref-check-ai"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-update-cli"
+        data-l10n-id="pref-update-cli"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-refresh-models"
+        data-l10n-id="pref-refresh-models"
+      ></html:button>
+    </hbox>
+  </vbox>
+
+  <vbox class="pf-card">
+    <html:div
+      class="pf-card-title"
+      data-l10n-id="pref-section-prompt"
+    ></html:div>
+    <html:div class="pf-card-desc" data-l10n-id="pref-prompt-help"></html:div>
+    <hbox class="pf-row">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-prompt-presets"
+        data-l10n-id="pref-prompt-presets-label"
+      ></html:label>
+      <menulist id="zotero-prefpane-__addonRef__-prompt-presets">
+        <menupopup />
+      </menulist>
+    </hbox>
+    <html:div
+      class="pf-card-desc"
+      data-l10n-id="pref-prompt-presets-help"
+    ></html:div>
+    <hbox class="pf-toolbar">
+      <html:button
+        class="pf-btn pf-btn-primary"
+        id="zotero-prefpane-__addonRef__-save-preset"
+        data-l10n-id="pref-save-preset"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-set-default-preset"
+        data-l10n-id="pref-set-default-preset"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-delete-preset"
+        data-l10n-id="pref-delete-preset"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-fill-default-prompt"
+        data-l10n-id="pref-fill-default-prompt"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-clear-custom-prompt"
+        data-l10n-id="pref-clear-custom-prompt"
+      ></html:button>
+    </hbox>
+    <html:textarea
+      class="pf-textarea"
+      id="zotero-prefpane-__addonRef__-prompt-override"
+      preference="promptOverride"
+      rows="8"
+      style="min-height: 180px"
+    ></html:textarea>
+  </vbox>
+
+  <vbox class="pf-card">
+    <html:div
+      class="pf-card-title"
+      data-l10n-id="pref-section-advanced"
+    ></html:div>
+    <vbox class="pf-checks">
+      <checkbox
+        id="zotero-prefpane-__addonRef__-use-custom-commands"
+        preference="useCustomCommands"
+        data-l10n-id="pref-use-custom-commands"
+      />
+    </vbox>
+    <vbox class="pf-field">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-ai-args"
+        data-l10n-id="pref-ai-args"
+      ></html:label>
+      <html:input
+        class="pf-input"
+        type="text"
+        id="zotero-prefpane-__addonRef__-ai-args"
+        preference="aiArgs"
+      ></html:input>
+    </vbox>
+    <vbox class="pf-field">
+      <html:label
+        class="pf-field-label"
+        for="zotero-prefpane-__addonRef__-ai-extra-args"
+        data-l10n-id="pref-ai-extra-args"
+      ></html:label>
+      <html:input
+        class="pf-input"
+        type="text"
+        id="zotero-prefpane-__addonRef__-ai-extra-args"
+        preference="aiExtraArgs"
+        placeholder="--max-budget-usd 1.00, -c key=value"
+      ></html:input>
+    </vbox>
+    <html:div class="pf-card-desc" data-l10n-id="pref-command-help"></html:div>
+    <html:textarea
+      class="pf-textarea pf-mono"
+      id="zotero-prefpane-__addonRef__-command-template"
+      preference="commandTemplate"
+      rows="6"
+      style="min-height: 120px"
+    ></html:textarea>
+    <html:div
+      class="pf-card-desc"
+      data-l10n-id="pref-delete-command-help"
+    ></html:div>
+    <html:textarea
+      class="pf-textarea pf-mono"
+      id="zotero-prefpane-__addonRef__-delete-command-template"
+      preference="deleteCommandTemplate"
+      rows="4"
+      style="min-height: 90px"
+    ></html:textarea>
+  </vbox>
+
+  <vbox class="pf-card">
+    <html:div
+      class="pf-card-title"
+      data-l10n-id="pref-section-actions"
+    ></html:div>
+    <html:div class="pf-card-desc" data-l10n-id="pref-actions-note"></html:div>
+    <hbox class="pf-toolbar">
+      <html:button
+        class="pf-btn pf-btn-primary"
+        id="zotero-prefpane-__addonRef__-run-selected"
+        data-l10n-id="pref-run-selected"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-prune-deleted"
+        data-l10n-id="pref-prune-deleted"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-archive-deleted"
+        >Archive previewed deletions</html:button
+      >
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-copy-example"
+        data-l10n-id="pref-copy-example"
+      ></html:button>
+      <html:button
+        class="pf-btn"
+        id="zotero-prefpane-__addonRef__-copy-status"
+        data-l10n-id="pref-copy-status"
+      ></html:button>
+    </hbox>
+  </vbox>
+
+  <vbox class="pf-card">
+    <html:div
+      class="pf-card-title"
+      data-l10n-id="pref-section-status"
+    ></html:div>
+    <html:textarea
+      class="pf-textarea pf-mono"
+      id="zotero-prefpane-__addonRef__-status"
+      readonly="readonly"
+      rows="12"
+      style="min-height: 220px"
+    ></html:textarea>
+  </vbox>
+
+  <html:label
+    class="pf-note"
+    data-l10n-id="pref-help"
+    data-l10n-args='{"time": "__buildTime__","name": "__addonName__","version":"__buildVersion__"}'
+  ></html:label>
+</groupbox>

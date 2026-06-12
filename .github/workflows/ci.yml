@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  plugin:
+    name: Zotero plugin (lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: paper-flow-zotero-plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: paper-flow-zotero-plugin/package-lock.json
+      - run: npm ci
+      - run: npm run lint:check
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paper-flow-xpi
+          path: paper-flow-zotero-plugin/.scaffold/build/*.xpi
+
+  python:
+    name: Python CLI (import check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - run: uv run python -c "import paper_notion_flow.cli, paper_notion_flow.ai, paper_notion_flow.notion_writer; print('imports OK')"
+      - run: uv run paper-notion-flow --help

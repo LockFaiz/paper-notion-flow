@@ -1,0 +1,12 @@
+startup-begin = Paper Flow 로드 중
+startup-finish = Paper Flow 준비됨
+menuitem-label = Paper Flow: 선택한 항목 처리
+menuitem-settings = Paper Flow 설정
+prefs-title = Paper Flow
+cli-checking = CLI 버전과 사용 가능한 모델 확인 중…
+cli-ok = ✓ { $tool } { $current } — 최신 상태
+cli-outdated = ⚠️ { $tool } { $current } 은(는) 구버전입니다. 최신은 { $latest }. "지금 CLI 업데이트"를 누르세요.
+cli-unknown = CLI 버전 상태를 알 수 없습니다. "Paper Flow 환경 확인"으로 확인하세요.
+effort-default = 기본값
+config-line = 현재 구성: { $tool } · 모델 { $model } · 추론 강도 { $effort }
+config-context = · 컨텍스트 { $context }

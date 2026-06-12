@@ -1,0 +1,37 @@
+name: Release
+
+# Push a version tag (e.g. `git tag v0.3.0 && git push origin v0.3.0`) and CI
+# builds the xpi from source and attaches it to the GitHub Release. Users
+# download paper-flow.xpi from the Releases page — build artifacts are never
+# committed to the repository.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: paper-flow-zotero-plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: paper-flow-zotero-plugin/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Attach xpi to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            paper-flow-zotero-plugin/.scaffold/build/*.xpi
+            paper-flow-zotero-plugin/.scaffold/build/update*.json
+          generate_release_notes: true

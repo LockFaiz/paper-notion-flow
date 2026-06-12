@@ -1,0 +1,12 @@
+startup-begin = Paper Flow 正在加载
+startup-finish = Paper Flow 已就绪
+menuitem-label = Paper Flow：处理当前选中文献
+menuitem-settings = Paper Flow 设置
+prefs-title = Paper Flow
+cli-checking = 正在检查 CLI 版本与可用模型…
+cli-ok = ✓ { $tool } { $current } — 已是最新
+cli-outdated = ⚠️ { $tool } { $current } 已过时,最新版为 { $latest }。请点击"立即更新 CLI"。
+cli-unknown = 无法确定 CLI 版本状态,可运行"检查 Paper Flow 环境"查看详情。
+effort-default = 默认
+config-line = 当前配置:{ $tool } · 模型 { $model } · 推理强度 { $effort }
+config-context = · 上下文 { $context }
