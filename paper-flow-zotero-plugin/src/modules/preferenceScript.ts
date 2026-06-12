@@ -29,6 +29,14 @@ export async function registerPrefsScripts(window: Window) {
   // Check CLI freshness + official model caches in the background so the
   // banner and the model dropdown are current every time the pane opens.
   void refreshCliBannerAndModels(window);
+  // Adopt roaming config that arrived via Zotero sync since startup, then
+  // reflect it in the open pane (database id field, preset list).
+  void PaperFlowPlugin.pullConfigFromZotero().then((adopted) => {
+    if (adopted) {
+      syncManagedPreferenceUI(window);
+      refreshPromptPresets(window);
+    }
+  });
 }
 
 let cliRefreshRunning = false;

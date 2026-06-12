@@ -287,6 +287,11 @@ export class PaperFlowPlugin {
     ids: Array<string | number>,
     _extraData: NotifyExtra,
   ) {
+    // Roaming-config adoption runs regardless of the auto-sync toggle: a
+    // config note arriving via Zotero sync should apply immediately.
+    if (type === "item" && ["add", "modify"].includes(event)) {
+      void this.adoptIncomingConfigNote(ids);
+    }
     if (!this.isEnabled() || !this.isAutoSyncEnabled()) {
       return;
     }
@@ -1425,6 +1430,47 @@ export class PaperFlowPlugin {
       ztoolkit.log("Paper Flow pushed roaming config to the sync note.");
     } catch (error) {
       ztoolkit.log(`Paper Flow could not push the config note: ${error}`);
+    }
+  }
+
+  /**
+   * Creates the roaming-config note when this device already has settings but
+   * no note exists yet — so a configured device seeds the sync channel
+   * automatically at startup instead of waiting for the user to edit
+   * something.
+   */
+  static async ensureConfigSeeded() {
+    try {
+      if (await this.findConfigNote()) {
+        return;
+      }
+      if (this.getNotionDatabaseId() || this.getPromptPresets().length) {
+        await this.pushConfigToZotero();
+      }
+    } catch (error) {
+      ztoolkit.log(`Paper Flow could not seed the config note: ${error}`);
+    }
+  }
+
+  /**
+   * Called from the notifier: when a note carrying our marker arrives via
+   * Zotero sync, adopt it immediately — no restart or pane visit needed.
+   * Self-pushes are harmless: the pull compares timestamps and no-ops.
+   */
+  static async adoptIncomingConfigNote(ids: Array<string | number>) {
+    try {
+      const items = await Zotero.Items.getAsync(ids as number[]);
+      const hasConfigNote = items.some(
+        (item) =>
+          item?.isNote?.() && item.getNote().includes(this.CONFIG_MARKER),
+      );
+      if (hasConfigNote) {
+        await this.pullConfigFromZotero();
+      }
+    } catch (error) {
+      ztoolkit.log(
+        `Paper Flow could not adopt an incoming config note: ${error}`,
+      );
     }
   }
 
