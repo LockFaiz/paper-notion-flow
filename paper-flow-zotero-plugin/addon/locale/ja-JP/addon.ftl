@@ -1,6 +1,5 @@
 startup-begin = Paper Flow を読み込み中
 startup-finish = Paper Flow の準備が完了しました
-menuitem-label = Paper Flow: 選択した項目を処理
 menuitem-settings = Paper Flow 設定
 prefs-title = Paper Flow
 cli-checking = CLI バージョンと利用可能モデルを確認中…

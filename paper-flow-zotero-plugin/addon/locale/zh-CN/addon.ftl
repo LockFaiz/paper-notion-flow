@@ -1,6 +1,5 @@
 startup-begin = Paper Flow 正在加载
 startup-finish = Paper Flow 已就绪
-menuitem-label = Paper Flow：处理当前选中文献
 menuitem-settings = Paper Flow 设置
 prefs-title = Paper Flow
 cli-checking = 正在检查 CLI 版本与可用模型…

@@ -5,9 +5,11 @@
 [![CI](https://github.com/LockFaiz/paper-notion-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/LockFaiz/paper-notion-flow/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 
-把 **Zotero、Notion 和本地 AI CLI**(Codex CLI / Claude Code)串成一条论文阅读工作流:Zotero 收藏论文 → 自动同步到 Notion 论文数据库 → 本地 AI 直接阅读 PDF,生成结构化中文解读(公式以 KaTeX 正确渲染),写入论文页面的子页。
+**Paper Notion Flow(PNF)** 把 **Zotero、Notion 和本地 AI CLI**(Codex CLI / Claude Code)串成一条论文阅读工作流:Zotero 收藏论文 → 自动同步到 Notion 论文数据库 → 本地 AI 直接阅读 PDF,生成结构化中文解读(公式以 KaTeX 正确渲染),写入论文页面的子页。
 
 全程本地运行:不上传你的文献库,AI 调用走你自己的 Codex/Claude 订阅。
+
+> **命名说明:** *Paper Notion Flow*(**PNF**)指整个项目;**Paper Flow** 指 Zotero 插件本身(你在 Zotero 菜单与设置里看到的名字);`paper-notion-flow` 指 Python CLI / 包。
 
 ## 快速开始
 
@@ -23,7 +25,7 @@
 4. 安装本地 AI CLI:[Codex CLI](https://github.com/openai/codex)(`npm i -g @openai/codex`)或 [Claude Code](https://docs.anthropic.com/en/docs/claude-code)。**Windows 用户必须装在 WSL 里**。
 5. 从 [Releases](https://github.com/LockFaiz/paper-notion-flow/releases) 下载 `paper-flow.xpi`,在 Zotero 安装(工具 → 插件 → 齿轮 → Install Plugin From File),重启 Zotero。
 6. 打开 **工具 → Paper Flow 设置**:填工作区路径(本仓库文件夹)、Notion token、数据库 ID,选择 AI 工具,点 **检查 Paper Flow 环境**——所有标记应为 `OK`。
-7. 在 Zotero 里右键任意论文 → **Paper Flow:处理当前选中文献**,解读会出现在对应 Notion 页面的子页里。
+7. 在 Zotero 里右键任意论文 → **Paper Flow: Sync + AI guide**(还有 **Sync metadata only**、**Open Notion page**、**Open Reading Guide** 三项),解读会出现在对应 Notion 页面的子页里。
 
 ## 界面预览
 
@@ -60,7 +62,7 @@ Notion:论文行(元数据)+ 子页(解读,公式渲染,生成信息页脚)
 
 ## 推荐组织方式
 
-**全部论文放一个 Notion 数据库**,不要按主题建多个库。主题用 Zotero 收藏夹表达,Paper Flow 会把收藏夹名写进 Notion 的 `Topic` 多选属性——一个可检索的统一文献库,主题归属仍在 Zotero 里管理。
+**全部论文放一个 Notion 数据库**,不要按主题建多个库。主题用 Zotero 收藏夹表达,PNF 会把收藏夹名写进 Notion 的 `Topic` 多选属性——一个可检索的统一文献库,主题归属仍在 Zotero 里管理。
 
 ## 文档
 
@@ -70,7 +72,7 @@ Notion:论文行(元数据)+ 子页(解读,公式渲染,生成信息页脚)
 
 ## 致谢
 
-- [Notero](https://github.com/dvanoni/notero)(David Vanoni)开创了 Zotero → Notion 同步的工作流,启发了本项目。Paper Flow 与其共用 Notion 属性命名习惯以保持兼容,但不包含任何 Notero 代码。
+- [Notero](https://github.com/dvanoni/notero)(David Vanoni)开创了 Zotero → Notion 同步的工作流,启发了本项目。PNF 与其共用 Notion 属性命名习惯以保持兼容,但不包含任何 Notero 代码。
 - Zotero 插件基于 windingwind 与 Zotero 插件社区的 [zotero-plugin-template](https://github.com/windingwind/zotero-plugin-template)、[zotero-plugin-toolkit](https://github.com/windingwind/zotero-plugin-toolkit) 和 [zotero-plugin-scaffold](https://github.com/northword/zotero-plugin-scaffold) 构建,`bootstrap.js` 源自 Zotero 官方 [Make It Red](https://github.com/zotero/make-it-red) 示例。
 - 论文解读由你本地安装的 [Codex CLI](https://github.com/openai/codex) 或 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 生成。
 

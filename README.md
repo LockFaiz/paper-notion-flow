@@ -5,9 +5,11 @@
 [![CI](https://github.com/LockFaiz/paper-notion-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/LockFaiz/paper-notion-flow/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 
-Paper Notion Flow connects Zotero, Notion, and a local AI CLI into a paper-reading workflow.
+**Paper Notion Flow (PNF)** connects Zotero, Notion, and a local AI CLI into a paper-reading workflow.
 
-It is designed as a single local workflow: Paper Flow reads Zotero, writes paper rows into Notion, and uses a local AI CLI (Codex CLI or Claude Code) to create concise reading guides — with properly rendered math (KaTeX) — under each Notion paper page.
+It is designed as a single local workflow: PNF reads Zotero, writes paper rows into Notion, and uses a local AI CLI (Codex CLI or Claude Code) to create concise reading guides — with properly rendered math (KaTeX) — under each Notion paper page.
+
+> **Naming:** *Paper Notion Flow* (**PNF**) is the whole project. **Paper Flow** is the Zotero plugin component (the name you see in Zotero's menus and settings). `paper-notion-flow` is the Python CLI/package.
 
 ## Quick Start
 
@@ -23,7 +25,7 @@ It is designed as a single local workflow: Paper Flow reads Zotero, writes paper
 4. Install a local AI CLI: [Codex CLI](https://github.com/openai/codex) (`npm i -g @openai/codex`) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — on Windows, install it **inside WSL**.
 5. Download `paper-flow.xpi` from [Releases](https://github.com/LockFaiz/paper-notion-flow/releases) and install it in Zotero (Tools → Plugins → gear icon → Install Plugin From File), then restart Zotero.
 6. Open **Tools → Paper Flow Settings**: fill in the workspace path (this repo folder), Notion token, database ID, pick your AI CLI, then click **Check Paper Flow setup** — all markers should read `OK`.
-7. Right-click any paper in Zotero → **Paper Flow: Process selected item**. The reading guide appears under the paper's Notion page.
+7. Right-click any paper in Zotero → **Paper Flow: Sync + AI guide** (other entries: **Sync metadata only**, **Open Notion page**, **Open Reading Guide**). The reading guide appears under the paper's Notion page.
 
 Full settings reference and troubleshooting: [docs/MANUAL.md](docs/MANUAL.md) ([中文手册](docs/MANUAL.zh-CN.md)).
 
@@ -51,7 +53,7 @@ Full settings reference and troubleshooting: [docs/MANUAL.md](docs/MANUAL.md) ([
 Zotero Connector / Zotero item
         |
         v
-Paper Flow syncs the base metadata row into Notion
+PNF syncs the base metadata row into Notion
         |
         v
 Paper Flow Zotero plugin watches Zotero events
@@ -66,7 +68,7 @@ Codex CLI / Claude Code / custom local AI command
 Notion paper page gets a child reading-guide page
 ```
 
-Paper Flow does not require Notero in the managed path. It creates or updates the Notion paper row itself, writes the Zotero link attachment/status tags itself, then refreshes the reading-guide child page.
+PNF does not require Notero in the managed path. It creates or updates the Notion paper row itself, writes the Zotero link attachment/status tags itself, then refreshes the reading-guide child page.
 
 ## Recommended Organization
 
@@ -78,7 +80,7 @@ Do not create one Notion database per research topic. That makes automation brit
 2. Configure Paper Flow with your Notion token and database ID.
 3. Create Zotero collections for topics, projects, or reading lists.
 4. When saving from the Zotero browser connector, choose the target Zotero collection.
-5. Paper Flow writes the Zotero collection names into the Notion topic property.
+5. PNF writes the Zotero collection names into the Notion topic property.
 
 Example:
 
@@ -96,16 +98,16 @@ This gives you one searchable Notion literature library while Zotero remains the
 
 1. Click the Zotero browser connector on a paper page.
 2. Save it into the desired Zotero collection.
-3. Paper Flow creates or updates the row in your Notion paper database.
-4. Paper Flow sees the Zotero item or collection event.
-5. Paper Flow runs the local CLI and creates a reading guide under that paper's Notion page.
+3. PNF creates or updates the row in your Notion paper database.
+4. PNF sees the Zotero item or collection event.
+5. PNF runs the local CLI and creates a reading guide under that paper's Notion page.
 6. The Zotero collection name is written into topic-like Notion properties when available.
 
 ### 2. Standalone Or Metadata-Poor PDF
 
 1. Save or drag a local PDF into Zotero.
-2. If Zotero only creates a standalone PDF item, Paper Flow can still process it.
-3. Paper Flow copies the PDF into the workspace so the local AI CLI can read it through a stable path.
+2. If Zotero only creates a standalone PDF item, PNF can still process it.
+3. PNF copies the PDF into the workspace so the local AI CLI can read it through a stable path.
 4. The AI guide tries to infer missing title, authors, and year from the PDF.
 5. A Notion paper page and reading-guide child page are created or updated.
 
@@ -145,12 +147,12 @@ Recommended properties:
 
 Collection-to-topic behavior:
 
-- If your Zotero item is inside collection `World_model`, Paper Flow writes `World_model` into the first matching Notion property from `Collections, Collection, Topic, Topics, Tags, Keywords, Category, Subject`.
+- If your Zotero item is inside collection `World_model`, PNF writes `World_model` into the first matching Notion property from `Collections, Collection, Topic, Topics, Tags, Keywords, Category, Subject`.
 - For multi-select properties, each collection becomes one option.
-- If a Zotero item belongs to several collections, Paper Flow can write several topic values into the same Notion row when the property supports it.
+- If a Zotero item belongs to several collections, PNF can write several topic values into the same Notion row when the property supports it.
 - This means you can keep one unified Notion paper database and use Zotero collections to classify papers by topic.
 
-Paper Flow Notion setup:
+PNF Notion setup:
 
 - Share your Notion paper database with your Notion integration.
 - Put the Notion token and database ID into Paper Flow settings, or set `NOTION_TOKEN` and `NOTION_DATABASE_ID` in `.env` for direct CLI runs.
@@ -158,7 +160,7 @@ Paper Flow Notion setup:
 
 ## Prerequisites
 
-Install these before using Paper Flow:
+Install these before using PNF:
 
 - Zotero 7 or compatible newer Zotero versions supported by the plugin manifest.
 - Zotero browser connector.
@@ -179,11 +181,11 @@ Platform notes:
 
 CLI auto-discovery:
 
-- Paper Flow starts a non-interactive shell from Zotero, which may not inherit the same PATH as your normal terminal.
+- PNF starts a non-interactive shell from Zotero, which may not inherit the same PATH as your normal terminal.
 - Before running `uv`, `codex`, or `claude`, the plugin bootstraps common tool locations for WSL, macOS, Linux, and native Windows.
 - Supported discovery paths include `~/.local/bin`, `~/.cargo/bin`, Homebrew, nvm, fnm, Volta, asdf, mise, Bun, npm global bins, Windows `%APPDATA%\npm`, `%LOCALAPPDATA%\Volta\bin`, nvm-windows, and Node.js install folders.
 - The Python CLI does a second lookup before launching the local AI command, so managed plugin runs and direct terminal runs use the same fallback behavior.
-- The setup check prints `CODEX_PATH`, `CLAUDE_PATH`, and version lines so you can see exactly which binary Paper Flow found.
+- The setup check prints `CODEX_PATH`, `CLAUDE_PATH`, and version lines so you can see exactly which binary PNF found.
 
 ## Python CLI Setup
 
@@ -225,7 +227,7 @@ Important variables:
 
 - `NOTION_TOKEN`: required. Create this in Notion integrations and share your database with it.
 - `NOTION_DATABASE_ID`: required for direct CLI runs; the Zotero plugin can pass this from Paper Flow settings.
-- `ZOTERO_DATA_DIR`: optional if Paper Flow can detect your Zotero data directory. Set it manually if detection fails.
+- `ZOTERO_DATA_DIR`: optional if PNF can detect your Zotero data directory. Set it manually if detection fails.
 - `LOCAL_AI_COMMAND`: usually `codex` or `claude`.
 - `LOCAL_AI_ARGS`: for Codex, `exec --skip-git-repo-check`; for Claude Code, often `--print`.
 - `LOCAL_AI_TEMPLATE`: advanced custom shell command with `{prompt_file}` and `{output_file}` placeholders.
@@ -239,7 +241,7 @@ LOCAL_AI_ARGS=exec --skip-git-repo-check
 LOCAL_AI_PROMPT_MODE=positional
 ```
 
-`--skip-git-repo-check` belongs to `codex exec`, not the top-level `codex` command. Paper Flow includes it because Zotero automation can run in folders that are not Git repositories yet, and Codex otherwise refuses non-interactive execution there.
+`--skip-git-repo-check` belongs to `codex exec`, not the top-level `codex` command. PNF includes it because Zotero automation can run in folders that are not Git repositories yet, and Codex otherwise refuses non-interactive execution there.
 
 Codex CLI with explicit model and effort:
 
@@ -275,15 +277,15 @@ AI quality controls:
 - `Model`: controls which local CLI model is used. Set it when you want stable output quality across future Codex CLI or Claude Code default-model changes.
 - `Effort`: controls reasoning depth when the CLI supports it. Higher effort can improve hard paper understanding but costs more time and tokens.
 - `Prompt`: controls what the guide should explain. For literature reading, this is often more important than changing the model.
-- `PDF access`: Paper Flow copies PDFs into the workspace before invoking the local CLI so WSL/mac paths are stable and easier for the CLI to read.
+- `PDF access`: PNF copies PDFs into the workspace before invoking the local CLI so WSL/mac paths are stable and easier for the CLI to read.
 - `Extra CLI arguments`: use this for provider-specific flags that appear in newer Codex or Claude Code releases.
 - `Capability summary`: the plugin shows the selected CLI's model flag, effort flag, generated local arguments, and whether the current CLI exposes model-list discovery.
 
 Model discovery notes:
 
 - Codex CLI and Claude Code currently expose model selection through flags such as `--model`, but they do not necessarily expose a machine-readable command that lists every model available to your account.
-- Paper Flow therefore does not hard-code a fake complete model list. It reads the current CLI help, shows the supported parameter form, and keeps model names as user-editable text.
-- If a future CLI release adds a real model-list command, Paper Flow's setup check is the right place to surface that capability.
+- PNF therefore does not hard-code a fake complete model list. It reads the current CLI help, shows the supported parameter form, and keeps model names as user-editable text.
+- If a future CLI release adds a real model-list command, PNF's setup check is the right place to surface that capability.
 
 Check the CLI:
 
@@ -315,7 +317,7 @@ Limit processing to one Zotero collection:
 uv run paper-notion-flow sync-zotero --collection World_model
 ```
 
-Validate Notion access and recommended Paper Flow properties:
+Validate Notion access and recommended PNF properties:
 
 ```bash
 uv run paper-notion-flow check-notion
@@ -419,8 +421,8 @@ ZOTERO_DB:OK
 Version notes:
 
 - `CODEX_UPDATE:OK` or `CLAUDE_UPDATE:OK` means the detected CLI version matches the latest npm package version.
-- `UPDATE:AVAILABLE` means your local CLI is older than the latest version Paper Flow can see. Run the printed update command in the same runtime used by the plugin.
-- `UPDATE:UNKNOWN` usually means `npm` is missing, offline, blocked by a proxy, or the CLI was installed through a non-npm channel. In that case, Paper Flow still prints the local version.
+- `UPDATE:AVAILABLE` means your local CLI is older than the latest version PNF can see. Run the printed update command in the same runtime used by the plugin.
+- `UPDATE:UNKNOWN` usually means `npm` is missing, offline, blocked by a proxy, or the CLI was installed through a non-npm channel. In that case, PNF still prints the local version.
 - If you want stable output quality across CLI updates, set `AI model override` and `Reasoning/effort level` explicitly in the plugin settings.
 
 ## Reading Guide Output
@@ -454,7 +456,7 @@ The guide is intentionally not a full-text translation. The default Chinese prom
 
 Current support:
 
-- Paper Flow can ask the AI to explain figures and tables when useful captions or table text are visible in the extracted PDF text.
+- PNF can ask the AI to explain figures and tables when useful captions or table text are visible in the extracted PDF text.
 
 Not currently supported:
 
@@ -503,14 +505,14 @@ Do not commit:
 
 ## Limitations
 
-- Paper Flow reads the local Zotero SQLite database; Zotero data path detection may need manual configuration.
+- PNF reads the local Zotero SQLite database; Zotero data path detection may need manual configuration.
 - PDF understanding depends on the selected local CLI's native file/PDF-reading capability.
 - Local AI CLI behavior depends on your Codex CLI, Claude Code, or custom command installation.
 - Image embedding is not implemented yet.
 
 ## Acknowledgments
 
-- [Notero](https://github.com/dvanoni/notero) by David Vanoni pioneered the Zotero → Notion sync workflow that inspired this project. Paper Flow shares Notion property naming conventions with it for compatibility, but contains no Notero code.
+- [Notero](https://github.com/dvanoni/notero) by David Vanoni pioneered the Zotero → Notion sync workflow that inspired this project. PNF shares Notion property naming conventions with it for compatibility, but contains no Notero code.
 - The Zotero plugin is built on [zotero-plugin-template](https://github.com/windingwind/zotero-plugin-template), [zotero-plugin-toolkit](https://github.com/windingwind/zotero-plugin-toolkit), and [zotero-plugin-scaffold](https://github.com/northword/zotero-plugin-scaffold) by windingwind and the Zotero plugin community, with `bootstrap.js` derived from Zotero's official [Make It Red](https://github.com/zotero/make-it-red) example.
 - Reading guides are generated by your locally installed [Codex CLI](https://github.com/openai/codex) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 

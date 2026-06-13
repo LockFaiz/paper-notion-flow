@@ -6,7 +6,7 @@ User documentation lives in the repo root: [README](../README.md) · [Manual](..
 
 ## What it does
 
-- Adds **Paper Flow: Process selected item** to the item context menu and a **Paper Flow Settings** entry to the Tools menu.
+- Right-click a paper for **Paper Flow: Sync + AI guide**, **Sync metadata only**, **Open Notion page**, and **Open Reading Guide**; right-click a collection for **Sync collection + AI** / **Sync collection metadata only**; **Paper Flow Settings** lives in the Tools menu.
 - Watches `item` / `collection-item` events with debouncing, a serial run queue, a process timeout, and content fingerprinting (sync write-backs don't trigger re-runs).
 - Builds cross-platform runtime commands (Windows WSL / native Windows / macOS / Linux). Unix runtimes execute a generated script file via `bash -l`; in WSL mode all `/mnt/*` Windows PATH entries are stripped so resolution stays inside the distro.
 - Manages the AI CLI: version banner with background auto-update (per-tool, throttled), model dropdown fed by the CLIs' official local model caches, model-aware effort levels, and an always-visible config line (tool · model · effort · context window).

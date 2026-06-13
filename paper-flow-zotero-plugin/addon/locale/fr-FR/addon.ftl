@@ -1,6 +1,5 @@
 startup-begin = Paper Flow se charge
 startup-finish = Paper Flow est prêt
-menuitem-label = Paper Flow : traiter l'élément sélectionné
 menuitem-settings = Paramètres Paper Flow
 prefs-title = Paper Flow
 cli-checking = Vérification de la version du CLI et des modèles disponibles…

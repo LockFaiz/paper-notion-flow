@@ -1,6 +1,5 @@
 startup-begin = Paper Flow 로드 중
 startup-finish = Paper Flow 준비됨
-menuitem-label = Paper Flow: 선택한 항목 처리
 menuitem-settings = Paper Flow 설정
 prefs-title = Paper Flow
 cli-checking = CLI 버전과 사용 가능한 모델 확인 중…
