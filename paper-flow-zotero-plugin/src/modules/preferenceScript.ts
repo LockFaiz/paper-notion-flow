@@ -36,6 +36,7 @@ export async function registerPrefsScripts(window: Window) {
     if (adopted) {
       syncManagedPreferenceUI(window);
       refreshPromptPresets(window);
+      refreshCollectionList(window);
     }
   });
 }
@@ -686,6 +687,8 @@ function saveCollectionChecks(window: Window) {
   // Selection is key-based now; clear the legacy name filter so it cannot
   // resurrect a stale match.
   setPref("watchedCollection" as any, "" as any);
+  // Collection selection roams across devices via the synced config note.
+  void PaperFlowPlugin.pushConfigToZotero();
   PaperFlowPlugin.setStatusMessage(
     keys.length
       ? `Watching ${keys.length} collection(s); items outside them are ignored.`

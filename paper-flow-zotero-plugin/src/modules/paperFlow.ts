@@ -1461,6 +1461,9 @@ export class PaperFlowPlugin {
         databaseId: this.getNotionDatabaseId(),
         promptPresets: this.getPromptPresets(),
         defaultPromptName: this.getDefaultPromptName(),
+        // Collection keys are stable across devices via Zotero sync, so the
+        // watched-collection selection roams too.
+        watchedCollectionKeys: String(getPref("watchedCollectionKeys") || ""),
         fingerprints,
         updatedAt: Date.now(),
       };
@@ -1566,6 +1569,9 @@ export class PaperFlowPlugin {
       if (typeof payload.defaultPromptName === "string") {
         setPref("defaultPromptName", payload.defaultPromptName);
         this.applyDefaultPrompt();
+      }
+      if (typeof payload.watchedCollectionKeys === "string") {
+        setPref("watchedCollectionKeys", payload.watchedCollectionKeys);
       }
       setPref("configSyncTs", String(remoteTs));
       this.setStatusMessage(
