@@ -787,12 +787,23 @@ export class PaperFlowPlugin {
       return true;
     }
 
-    const collectionIDs = item.getCollections();
-    const keys = collectionIDs
-      .map((collectionID) => Zotero.Collections.get(collectionID))
-      .filter(Boolean)
-      .map((collection) => collection.key);
-    if (watchedKeys.some((key) => keys.includes(key))) {
+    // getCollections() returns only DIRECT memberships, so a paper filed in a
+    // sub-collection of a checked parent would be missed. Walk up each parent
+    // chain so checking a parent collection also covers its descendants.
+    const keys = new Set<string>();
+    for (const collectionID of item.getCollections()) {
+      let collection = Zotero.Collections.get(collectionID) as
+        | Zotero.Collection
+        | false;
+      while (collection) {
+        keys.add(collection.key);
+        const parentID = (collection as any).parentID;
+        collection = parentID
+          ? (Zotero.Collections.get(parentID) as Zotero.Collection | false)
+          : false;
+      }
+    }
+    if (watchedKeys.some((key) => keys.has(key))) {
       return true;
     }
     const names = this.getCollectionNames(item).map((name) =>
