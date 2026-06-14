@@ -81,7 +81,6 @@ def build_parser() -> argparse.ArgumentParser:
     map_sub.add_parser("check", help="Validate the research-map Notion databases and token.")
 
     map_build = map_sub.add_parser("build", help="Extract problems/concepts/relations/gaps and sync to Notion.")
-    map_build.add_argument("--since-hours", type=float, default=24.0, help="How far back to scan Zotero changes.")
     map_build.add_argument("--collection", action="append", default=[], help="Limit to one or more collections.")
     map_build.add_argument("--data-dir", default="data", help="Directory for markdown and state.")
     map_build.add_argument("--force", action="store_true", help="Re-extract even if a paper was already mapped.")
@@ -181,7 +180,6 @@ def main() -> None:
                     settings=settings,
                     data_dir=Path(args.data_dir),
                     collections=args.collection,
-                    since_hours=args.since_hours,
                     force=args.force,
                     prompt_override=prompt_override,
                 )

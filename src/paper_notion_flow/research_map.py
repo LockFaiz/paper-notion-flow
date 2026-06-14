@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import json
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from notion_client import Client
 from notion_client.errors import APIResponseError
 
+from .ai import LANGUAGE_NAMES, run_structured_extraction
 from .config import Settings
+from .models import ResearchMapExtraction
+from .notion_writer import TEXT
+from .state import SyncState
+
+GUIDE_TITLES = tuple({texts["guide_title"] for texts in TEXT.values()})
+_TEXT_BLOCK_LIMIT = 12000
 
 MAP_ENV_KEYS = (
     "NOTION_PROBLEMS_DATABASE_ID",
@@ -236,22 +245,253 @@ def check_map_setup(settings: Settings) -> str:
     return "\n".join(lines)
 
 
+@dataclass(slots=True)
+class PaperContent:
+    page_id: str
+    title: str
+    authors: str
+    topics: list[str]
+    last_edited: str
+    abstract: str
+
+
+def _plain(items: list[dict]) -> str:
+    return "".join(
+        item.get("plain_text") or item.get("text", {}).get("content", "") for item in items
+    ).strip()
+
+
+def _first_text_property(page: dict, candidates: tuple[str, ...]) -> str:
+    props = page.get("properties", {})
+    for name in candidates:
+        prop = props.get(name)
+        if not prop:
+            continue
+        prop_type = prop.get("type")
+        if prop_type in ("rich_text", "title"):
+            value = _plain(prop.get(prop_type, []))
+            if value:
+                return value
+        elif prop_type == "url" and prop.get("url"):
+            return prop["url"]
+    return ""
+
+
+def _title_property(page: dict) -> str:
+    for prop in page.get("properties", {}).values():
+        if prop.get("type") == "title":
+            return _plain(prop.get("title", []))
+    return ""
+
+
+def _multi_values(page: dict, candidates: tuple[str, ...]) -> list[str]:
+    props = page.get("properties", {})
+    for name in candidates:
+        prop = props.get(name)
+        if not prop:
+            continue
+        if prop.get("type") == "multi_select":
+            values = [item.get("name", "") for item in prop.get("multi_select", [])]
+            if values:
+                return [v for v in values if v]
+        elif prop.get("type") == "rich_text":
+            value = _plain(prop.get("rich_text", []))
+            if value:
+                return [value]
+    return []
+
+
+def _blocks_to_text(client: Client, block_id: str) -> str:
+    parts: list[str] = []
+    cursor = None
+    while True:
+        response = client.blocks.children.list(block_id=block_id, page_size=100, start_cursor=cursor)
+        for block in response.get("results", []):
+            block_type = block.get("type")
+            payload = block.get(block_type, {}) if block_type else {}
+            if isinstance(payload, dict) and "rich_text" in payload:
+                text = _plain(payload["rich_text"])
+                if text:
+                    parts.append(text)
+            elif block_type == "equation":
+                expr = payload.get("expression", "")
+                if expr:
+                    parts.append(expr)
+        if not response.get("has_more"):
+            break
+        cursor = response.get("next_cursor")
+        if sum(len(part) for part in parts) > _TEXT_BLOCK_LIMIT:
+            break
+    return "\n".join(parts)[:_TEXT_BLOCK_LIMIT]
+
+
+def _read_guide_text(client: Client, paper_page_id: str) -> str:
+    for block in client.blocks.children.list(block_id=paper_page_id, page_size=100).get("results", []):
+        if block.get("type") != "child_page":
+            continue
+        if block["child_page"].get("title") in GUIDE_TITLES:
+            return _blocks_to_text(client, block["id"])
+    return ""
+
+
+def _iter_papers(client: Client, settings: Settings, collections: list[str]) -> list[PaperContent]:
+    wanted = {name.lower() for name in collections}
+    papers: list[PaperContent] = []
+    cursor = None
+    while True:
+        response = client.databases.query(
+            database_id=settings.notion_database_id, page_size=100, start_cursor=cursor
+        )
+        for page in response.get("results", []):
+            topics = _multi_values(page, settings.notion_collection_candidates)
+            if wanted and not ({t.lower() for t in topics} & wanted):
+                continue
+            papers.append(
+                PaperContent(
+                    page_id=page["id"],
+                    title=_title_property(page),
+                    authors=_first_text_property(page, settings.notion_authors_candidates),
+                    topics=topics,
+                    last_edited=page.get("last_edited_time", ""),
+                    abstract=_first_text_property(page, settings.notion_abstract_candidates),
+                )
+            )
+        if not response.get("has_more"):
+            break
+        cursor = response.get("next_cursor")
+    return papers
+
+
+def _extract_for_paper(
+    client: Client, settings: Settings, paper: PaperContent, prompt_override: str | None
+) -> ResearchMapExtraction:
+    language_name = LANGUAGE_NAMES.get(settings.guide_language, "Simplified Chinese")
+    content = _read_guide_text(client, paper.page_id) or paper.abstract or paper.title
+    prompt = EXTRACTION_PROMPT.format(
+        language_name=language_name,
+        title_hint=paper.title,
+        authors=paper.authors,
+        collections=", ".join(paper.topics),
+        content=content,
+    )
+    if prompt_override:
+        prompt = f"{prompt_override.strip()}\n\n{prompt}"
+    return run_structured_extraction(settings, prompt, ResearchMapExtraction)
+
+
+@dataclass(slots=True)
+class _Node:
+    name: str
+    detail: str = ""
+    kind: str = ""
+    papers: set[str] = field(default_factory=set)
+    related: set[str] = field(default_factory=set)
+
+
+def _merge(graph: dict[str, dict], extraction: ResearchMapExtraction, paper_title: str) -> None:
+    for problem in extraction.problems:
+        node = graph["problems"].setdefault(normalize_node_name(problem.name), _Node(problem.name))
+        node.detail = node.detail or problem.description
+        node.papers.add(paper_title)
+    for concept in extraction.concepts:
+        node = graph["concepts"].setdefault(normalize_node_name(concept.name), _Node(concept.name))
+        node.detail = node.detail or concept.description
+        node.kind = node.kind or concept.kind
+        node.papers.add(paper_title)
+    for relation in extraction.relations:
+        key = (normalize_node_name(relation.source), normalize_node_name(relation.target), relation.type)
+        node = graph["relations"].setdefault(
+            key, _Node(relation.source, detail=relation.rationale, kind=relation.type)
+        )
+        node.related.add(relation.target)
+        node.papers.add(paper_title)
+    for gap in extraction.gaps:
+        node = graph["gaps"].setdefault(normalize_node_name(gap.name), _Node(gap.name))
+        node.detail = node.detail or gap.rationale
+        node.related.update(gap.related)
+        node.papers.add(paper_title)
+
+
+def _graph_to_json(graph: dict[str, dict]) -> dict:
+    problems = [
+        {"name": n.name, "description": n.detail, "papers": sorted(n.papers)}
+        for n in graph["problems"].values()
+    ]
+    concepts = [
+        {"name": n.name, "kind": n.kind or "concept", "description": n.detail, "papers": sorted(n.papers)}
+        for n in graph["concepts"].values()
+    ]
+    relations = [
+        {"source": n.name, "target": next(iter(n.related), ""), "type": n.kind, "rationale": n.detail, "papers": sorted(n.papers)}
+        for n in graph["relations"].values()
+    ]
+    gaps = [
+        {"name": n.name, "rationale": n.detail, "related": sorted(n.related), "papers": sorted(n.papers)}
+        for n in graph["gaps"].values()
+    ]
+    return {"problems": problems, "concepts": concepts, "relations": relations, "gaps": gaps}
+
+
 def build_research_map(
     settings: Settings,
     *,
     data_dir: Path,
     collections: list[str],
-    since_hours: float,
     force: bool,
     prompt_override: str | None = None,
 ) -> str:
-    """Extract graph elements from papers and sync them to Notion.
+    """Extract graph elements from each paper's Notion guide and merge them.
 
-    Implemented in roadmap steps 2 (extraction) and 3 (Notion sync).
+    Step 2: per-paper extraction (guide text preferred, abstract fallback),
+    cached and deduped into <data-dir>/research-map/graph.json. Notion sync is
+    step 3.
     """
-    raise NotImplementedError(
-        "map build lands in roadmap step 2 (extraction) + step 3 (Notion sync). "
-        "Schema and scaffolding are in place; see docs/RESEARCH_MAP.md."
+    if not settings.notion_token or not settings.notion_database_id:
+        raise RuntimeError("NOTION_TOKEN and NOTION_DATABASE_ID (the Papers database) are required.")
+
+    client = Client(auth=settings.notion_token)
+    papers = _iter_papers(client, settings, collections)
+
+    cache_dir = data_dir / "research-map" / "papers"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    state = SyncState(data_dir / "state" / "research_map_state.json")
+
+    extracted = 0
+    cached = 0
+    graph: dict[str, dict] = {"problems": {}, "concepts": {}, "relations": {}, "gaps": {}}
+
+    for paper in papers:
+        cache_path = cache_dir / f"{paper.page_id.replace('-', '')}.json"
+        reuse = (
+            not force
+            and cache_path.exists()
+            and state.was_processed(paper.page_id, paper.last_edited)
+        )
+        if reuse:
+            extraction = ResearchMapExtraction.model_validate_json(cache_path.read_text(encoding="utf-8"))
+            cached += 1
+        else:
+            extraction = _extract_for_paper(client, settings, paper, prompt_override)
+            cache_path.write_text(extraction.model_dump_json(indent=2), encoding="utf-8")
+            state.mark_processed(paper.page_id, paper.last_edited)
+            extracted += 1
+        _merge(graph, extraction, paper.title or paper.page_id)
+
+    graph_json = _graph_to_json(graph)
+    graph_path = data_dir / "research-map" / "graph.json"
+    graph_path.write_text(json.dumps(graph_json, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    return "\n".join(
+        [
+            "MAP_BUILD:OK",
+            f"PAPERS:{len(papers)} (extracted {extracted}, reused {cached})",
+            f"PROBLEMS:{len(graph_json['problems'])}",
+            f"CONCEPTS:{len(graph_json['concepts'])}",
+            f"RELATIONS:{len(graph_json['relations'])}",
+            f"GAPS:{len(graph_json['gaps'])}",
+            f"GRAPH_JSON:{graph_path}",
+            "Notion sync lands in step 3.",
+        ]
     )
 
 

@@ -60,8 +60,10 @@ paper-notion-flow map render   # build landscape.html from Notion + optionally s
 with your integration), then prints the ids — `--write-env` upserts them into
 `./.env`. Run `map check` afterwards to confirm access.
 
-`map build` flags mirror `sync-zotero`: `--collection`, `--since-hours`,
-`--force`, `--data-dir`, prompt-override.
+`map build` reads the Papers database (filter with `--collection`), extracts per
+paper (guide text preferred, abstract fallback), caches + dedups into
+`<data-dir>/research-map/graph.json`, and is incremental (re-extracts only papers
+whose Notion `last_edited` changed; `--force` re-extracts all).
 
 ## Rendering
 
@@ -85,7 +87,7 @@ with your integration), then prints the ids — `--write-env` upserts them into
 ## Roadmap
 
 - [x] 1. Schema + scaffolding — Pydantic models, config, `map` CLI group (`init`/`check`), this doc
-- [ ] 2. Extraction — prompt + `map build` produces ResearchMapExtraction JSON
+- [x] 2. Extraction — `map build`: per-paper extraction, cache + dedup → graph.json
 - [ ] 3. Notion sync — write/dedup Problems/Concepts/Relations/Gaps
 - [ ] 4. Render — `map render` → Cytoscape `landscape.html` + local serve
 - [ ] 5. Plugin wiring — "Open Research Map" action + settings

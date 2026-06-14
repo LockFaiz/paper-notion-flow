@@ -157,6 +157,29 @@ def build_reading_guide(
     raise RuntimeError(f"Unsupported AI backend: {settings.ai_backend}")
 
 
+def run_structured_extraction(settings: Settings, prompt: str, model_cls):
+    """Run a prompt and validate the JSON result against a Pydantic model.
+
+    Reuses the same backends as build_reading_guide so the research map inherits
+    the local-CLI runner (PATH bootstrap, codex/claude handling) and OpenAI path.
+    """
+    if settings.ai_backend == "openai":
+        if not settings.openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY is required when AI_BACKEND=openai.")
+        client = OpenAI(api_key=settings.openai_api_key)
+        response = client.responses.parse(
+            model=settings.openai_model,
+            input=[{"role": "user", "content": prompt}],
+            text_format=model_cls,
+        )
+        return response.output_parsed
+    if settings.ai_backend == "command":
+        raw_output = _run_local_command(settings, prompt)
+        payload = _extract_json(raw_output)
+        return model_cls.model_validate(payload)
+    raise RuntimeError(f"Unsupported AI backend: {settings.ai_backend}")
+
+
 def _compose_prompt(
     *,
     prompt_override: str | None,
