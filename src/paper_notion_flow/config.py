@@ -206,6 +206,15 @@ class Settings:
         default_factory=lambda: _csv_env("NOTION_AI_UPDATED_PROPERTY_CANDIDATES", "AI Last Updated,Last Updated")
     )
 
+    # Research map (feature/research-map): the 4 extra Notion databases plus the
+    # Landscape page that links to the rendered graph. Papers DB is the existing
+    # notion_database_id above.
+    notion_problems_database_id: str | None = os.getenv("NOTION_PROBLEMS_DATABASE_ID")
+    notion_concepts_database_id: str | None = os.getenv("NOTION_CONCEPTS_DATABASE_ID")
+    notion_relations_database_id: str | None = os.getenv("NOTION_RELATIONS_DATABASE_ID")
+    notion_gaps_database_id: str | None = os.getenv("NOTION_GAPS_DATABASE_ID")
+    notion_landscape_page_id: str | None = os.getenv("NOTION_LANDSCAPE_PAGE_ID")
+
     ai_backend: str = os.getenv("AI_BACKEND", "command")
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")

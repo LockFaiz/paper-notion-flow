@@ -89,3 +89,39 @@ class ReadingGuide(BaseModel):
     key_points: list[str] = Field(default_factory=list, description="Legacy field. Prefer mechanism/contributions instead.")
     reading_plan: list[str] = Field(default_factory=list, description="Legacy field. Leave empty unless explicitly requested.")
     questions: list[str] = Field(default_factory=list, description="Legacy field. Leave empty unless explicitly requested.")
+
+
+# --- Research map extraction (feature/research-map) ---------------------------
+# Per-paper extraction produced by the local AI CLI. The build step merges and
+# dedups these across the library by normalized node name before writing Notion.
+
+
+class MapProblem(BaseModel):
+    name: str = Field(description="Short research problem / objective the field is tackling. Noun phrase, not a sentence.")
+    description: str = Field(default="", description="One concise line explaining the problem.")
+
+
+class MapConcept(BaseModel):
+    name: str = Field(description="A method, model, technique, dataset, or concept used in the paper. Short noun phrase.")
+    kind: str = Field(default="concept", description="One of: method, model, dataset, metric, concept.")
+    description: str = Field(default="", description="One concise line explaining the concept.")
+
+
+class MapRelation(BaseModel):
+    source: str = Field(description="Name of the source node (a problem or concept named elsewhere in this extraction).")
+    target: str = Field(description="Name of the target node (a problem or concept named elsewhere in this extraction).")
+    type: str = Field(default="uses", description="One of: addresses, builds-on, uses, contradicts, evaluates.")
+    rationale: str = Field(default="", description="One concise line explaining why this relation holds.")
+
+
+class MapGap(BaseModel):
+    name: str = Field(description="An unaddressed problem, untested claim, or missing comparison. Short noun phrase.")
+    rationale: str = Field(default="", description="One concise line explaining why this is an open gap.")
+    related: list[str] = Field(default_factory=list, description="Names of nodes this gap concerns.")
+
+
+class ResearchMapExtraction(BaseModel):
+    problems: list[MapProblem] = Field(default_factory=list)
+    concepts: list[MapConcept] = Field(default_factory=list)
+    relations: list[MapRelation] = Field(default_factory=list)
+    gaps: list[MapGap] = Field(default_factory=list)

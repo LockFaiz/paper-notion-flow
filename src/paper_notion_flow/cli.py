@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 from .config import Settings
+from .research_map import build_research_map, check_map_setup, render_research_map
 from .workflow import check_notion, import_pdf_document, process_zotero_item, prune_zotero_deletions, sync_zotero
 
 
@@ -69,6 +70,23 @@ def build_parser() -> argparse.ArgumentParser:
     prune_parser.add_argument("--dry-run", action="store_true", help="Preview deleted-item cleanup without archiving pages.")
 
     subparsers.add_parser("check-notion", help="Validate Notion token, database access, and useful Paper Flow properties.")
+
+    map_parser = subparsers.add_parser("map", help="Build and render the Notion-managed research map.")
+    map_sub = map_parser.add_subparsers(dest="map_command", required=True)
+
+    map_sub.add_parser("check", help="Validate the research-map Notion databases and token.")
+
+    map_build = map_sub.add_parser("build", help="Extract problems/concepts/relations/gaps and sync to Notion.")
+    map_build.add_argument("--since-hours", type=float, default=24.0, help="How far back to scan Zotero changes.")
+    map_build.add_argument("--collection", action="append", default=[], help="Limit to one or more collections.")
+    map_build.add_argument("--data-dir", default="data", help="Directory for markdown and state.")
+    map_build.add_argument("--force", action="store_true", help="Re-extract even if a paper was already mapped.")
+    _add_prompt_override_args(map_build)
+
+    map_render = map_sub.add_parser("render", help="Render landscape.html from the Notion databases.")
+    map_render.add_argument("--data-dir", default="data", help="Directory for the rendered landscape file.")
+    map_render.add_argument("--output", help="Output path for landscape.html (default: <data-dir>/landscape.html).")
+    map_render.add_argument("--serve", action="store_true", help="Serve the rendered map on localhost after building.")
 
     watch_parser = subparsers.add_parser("watch-zotero", help="Poll Zotero and process new or changed items.")
     watch_parser.add_argument("--since-hours", type=float, default=6.0, help="Initial lookback window.")
@@ -138,6 +156,34 @@ def main() -> None:
 
     if args.command == "check-notion":
         print(check_notion(settings))
+        return
+
+    if args.command == "map":
+        if args.map_command == "check":
+            print(check_map_setup(settings))
+            return
+        if args.map_command == "build":
+            print(
+                build_research_map(
+                    settings=settings,
+                    data_dir=Path(args.data_dir),
+                    collections=args.collection,
+                    since_hours=args.since_hours,
+                    force=args.force,
+                    prompt_override=prompt_override,
+                )
+            )
+            return
+        if args.map_command == "render":
+            print(
+                render_research_map(
+                    settings=settings,
+                    data_dir=Path(args.data_dir),
+                    output=Path(args.output) if args.output else None,
+                    serve=args.serve,
+                )
+            )
+            return
         return
 
     if args.command == "watch-zotero":
