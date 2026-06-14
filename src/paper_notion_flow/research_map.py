@@ -11,7 +11,7 @@ from notion_client.errors import APIResponseError
 from .ai import LANGUAGE_NAMES, run_structured_extraction
 from .config import Settings
 from .models import ResearchMapExtraction
-from .notion_writer import TEXT
+from .notion_writer import TEXT, NotionWriter
 from .state import SyncState
 
 GUIDE_TITLES = tuple({texts["guide_title"] for texts in TEXT.values()})
@@ -301,72 +301,56 @@ def _multi_values(page: dict, candidates: tuple[str, ...]) -> list[str]:
     return []
 
 
-def _blocks_to_text(client: Client, block_id: str) -> str:
+def _blocks_to_text(blocks: list[dict]) -> str:
     parts: list[str] = []
-    cursor = None
-    while True:
-        response = client.blocks.children.list(block_id=block_id, page_size=100, start_cursor=cursor)
-        for block in response.get("results", []):
-            block_type = block.get("type")
-            payload = block.get(block_type, {}) if block_type else {}
-            if isinstance(payload, dict) and "rich_text" in payload:
-                text = _plain(payload["rich_text"])
-                if text:
-                    parts.append(text)
-            elif block_type == "equation":
-                expr = payload.get("expression", "")
-                if expr:
-                    parts.append(expr)
-        if not response.get("has_more"):
-            break
-        cursor = response.get("next_cursor")
-        if sum(len(part) for part in parts) > _TEXT_BLOCK_LIMIT:
-            break
+    for block in blocks:
+        block_type = block.get("type")
+        payload = block.get(block_type, {}) if block_type else {}
+        if isinstance(payload, dict) and "rich_text" in payload:
+            text = _plain(payload["rich_text"])
+            if text:
+                parts.append(text)
+        elif block_type == "equation":
+            expr = payload.get("expression", "")
+            if expr:
+                parts.append(expr)
     return "\n".join(parts)[:_TEXT_BLOCK_LIMIT]
 
 
-def _read_guide_text(client: Client, paper_page_id: str) -> str:
-    for block in client.blocks.children.list(block_id=paper_page_id, page_size=100).get("results", []):
+def _read_guide_text(writer: NotionWriter, paper_page_id: str) -> str:
+    for block in writer._list_all_child_blocks(paper_page_id):
         if block.get("type") != "child_page":
             continue
         if block["child_page"].get("title") in GUIDE_TITLES:
-            return _blocks_to_text(client, block["id"])
+            return _blocks_to_text(writer._list_all_child_blocks(block["id"]))
     return ""
 
 
-def _iter_papers(client: Client, settings: Settings, collections: list[str]) -> list[PaperContent]:
+def _iter_papers(writer: NotionWriter, settings: Settings, collections: list[str]) -> list[PaperContent]:
     wanted = {name.lower() for name in collections}
     papers: list[PaperContent] = []
-    cursor = None
-    while True:
-        response = client.databases.query(
-            database_id=settings.notion_database_id, page_size=100, start_cursor=cursor
-        )
-        for page in response.get("results", []):
-            topics = _multi_values(page, settings.notion_collection_candidates)
-            if wanted and not ({t.lower() for t in topics} & wanted):
-                continue
-            papers.append(
-                PaperContent(
-                    page_id=page["id"],
-                    title=_title_property(page),
-                    authors=_first_text_property(page, settings.notion_authors_candidates),
-                    topics=topics,
-                    last_edited=page.get("last_edited_time", ""),
-                    abstract=_first_text_property(page, settings.notion_abstract_candidates),
-                )
+    for page in writer._iter_database_pages():
+        topics = _multi_values(page, settings.notion_collection_candidates)
+        if wanted and not ({t.lower() for t in topics} & wanted):
+            continue
+        papers.append(
+            PaperContent(
+                page_id=page["id"],
+                title=_title_property(page),
+                authors=_first_text_property(page, settings.notion_authors_candidates),
+                topics=topics,
+                last_edited=page.get("last_edited_time", ""),
+                abstract=_first_text_property(page, settings.notion_abstract_candidates),
             )
-        if not response.get("has_more"):
-            break
-        cursor = response.get("next_cursor")
+        )
     return papers
 
 
 def _extract_for_paper(
-    client: Client, settings: Settings, paper: PaperContent, prompt_override: str | None
+    writer: NotionWriter, settings: Settings, paper: PaperContent, prompt_override: str | None
 ) -> ResearchMapExtraction:
     language_name = LANGUAGE_NAMES.get(settings.guide_language, "Simplified Chinese")
-    content = _read_guide_text(client, paper.page_id) or paper.abstract or paper.title
+    content = _read_guide_text(writer, paper.page_id) or paper.abstract or paper.title
     prompt = EXTRACTION_PROMPT.format(
         language_name=language_name,
         title_hint=paper.title,
@@ -449,8 +433,8 @@ def build_research_map(
     if not settings.notion_token or not settings.notion_database_id:
         raise RuntimeError("NOTION_TOKEN and NOTION_DATABASE_ID (the Papers database) are required.")
 
-    client = Client(auth=settings.notion_token)
-    papers = _iter_papers(client, settings, collections)
+    writer = NotionWriter(settings)
+    papers = _iter_papers(writer, settings, collections)
 
     cache_dir = data_dir / "research-map" / "papers"
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -471,7 +455,7 @@ def build_research_map(
             extraction = ResearchMapExtraction.model_validate_json(cache_path.read_text(encoding="utf-8"))
             cached += 1
         else:
-            extraction = _extract_for_paper(client, settings, paper, prompt_override)
+            extraction = _extract_for_paper(writer, settings, paper, prompt_override)
             cache_path.write_text(extraction.model_dump_json(indent=2), encoding="utf-8")
             state.mark_processed(paper.page_id, paper.last_edited)
             extracted += 1
