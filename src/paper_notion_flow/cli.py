@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 
 from .config import Settings
-from .research_map import build_research_map, check_map_setup, render_research_map
+from .research_map import build_research_map, check_map_setup, init_research_map, render_research_map
 from .workflow import check_notion, import_pdf_document, process_zotero_item, prune_zotero_deletions, sync_zotero
 
 
@@ -73,6 +73,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     map_parser = subparsers.add_parser("map", help="Build and render the Notion-managed research map.")
     map_sub = map_parser.add_subparsers(dest="map_command", required=True)
+
+    map_init = map_sub.add_parser("init", help="Create the 4 research-map databases + Landscape page via the Notion API.")
+    map_init.add_argument("--parent", required=True, help="Notion page id (or URL) to create the databases under.")
+    map_init.add_argument("--write-env", action="store_true", help="Write the resulting ids into ./.env.")
 
     map_sub.add_parser("check", help="Validate the research-map Notion databases and token.")
 
@@ -159,6 +163,15 @@ def main() -> None:
         return
 
     if args.command == "map":
+        if args.map_command == "init":
+            print(
+                init_research_map(
+                    settings=settings,
+                    parent_page_id=args.parent,
+                    write_env=args.write_env,
+                )
+            )
+            return
         if args.map_command == "check":
             print(check_map_setup(settings))
             return

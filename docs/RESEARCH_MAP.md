@@ -19,7 +19,7 @@ the user can edit/curate nodes in Notion and the map reflects it.
 | **Papers** | existing PNF paper collection | title, authors, topic, Zotero Key … |
 | **Problems** | research questions / objectives | `Name` (title), `Description`, `Status`, `Papers` (relation) |
 | **Concepts** | methods, models, techniques (graph nodes) | `Name` (title), `Kind` (select: method/model/dataset/metric/concept), `Description`, `Papers` (relation), `Problems` (relation) |
-| **Relations** | typed edges between nodes | `Name` (title, auto `A → B`), `Source`, `Target` (relations or text), `Type` (select: addresses/builds-on/uses/contradicts/evaluates), `Rationale` |
+| **Relations** | typed edges between nodes | `Name` (title), `Source`, `Target` (rich text = node name; an edge can link a Problem *or* a Concept, and a Notion relation targets only one DB), `Type` (select: addresses/builds-on/uses/contradicts/evaluates), `Rationale` |
 | **Gaps** | unaddressed problems / untested claims | `Name` (title), `Rationale`, `Related` (relation to Concepts/Problems), `Papers` (relation) |
 
 Edges in the graph are Notion `Relations` rows (and the relation properties on
@@ -50,10 +50,15 @@ dedup pattern. No new external services; everything is local + the user's Notion
 ## CLI
 
 ```
+paper-notion-flow map init --parent <page-id> [--write-env]   # auto-create the 4 DBs + Landscape page (step 1)
 paper-notion-flow map check    # validate the 5 DB ids + token (step 1)
 paper-notion-flow map build    # extract + sync nodes/edges/gaps to Notion (steps 2–3)
 paper-notion-flow map render   # build landscape.html from Notion + optionally serve (step 4)
 ```
+
+`map init` creates the databases under a Notion page you own (and that is shared
+with your integration), then prints the ids — `--write-env` upserts them into
+`./.env`. Run `map check` afterwards to confirm access.
 
 `map build` flags mirror `sync-zotero`: `--collection`, `--since-hours`,
 `--force`, `--data-dir`, prompt-override.
@@ -79,7 +84,7 @@ paper-notion-flow map render   # build landscape.html from Notion + optionally s
 
 ## Roadmap
 
-- [ ] 1. Schema + scaffolding — Pydantic models, config, `map` CLI group, this doc
+- [x] 1. Schema + scaffolding — Pydantic models, config, `map` CLI group (`init`/`check`), this doc
 - [ ] 2. Extraction — prompt + `map build` produces ResearchMapExtraction JSON
 - [ ] 3. Notion sync — write/dedup Problems/Concepts/Relations/Gaps
 - [ ] 4. Render — `map render` → Cytoscape `landscape.html` + local serve

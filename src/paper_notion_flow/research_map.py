@@ -8,6 +8,14 @@ from notion_client.errors import APIResponseError
 
 from .config import Settings
 
+MAP_ENV_KEYS = (
+    "NOTION_PROBLEMS_DATABASE_ID",
+    "NOTION_CONCEPTS_DATABASE_ID",
+    "NOTION_RELATIONS_DATABASE_ID",
+    "NOTION_GAPS_DATABASE_ID",
+    "NOTION_LANDSCAPE_PAGE_ID",
+)
+
 # Research map orchestration (feature/research-map). See docs/RESEARCH_MAP.md.
 #
 # Roadmap:
@@ -61,6 +69,138 @@ Paper reading guide / content:
 def normalize_node_name(name: str) -> str:
     """Canonical key for dedup/merge across papers."""
     return re.sub(r"\s+", " ", name.strip().lower())
+
+
+def extract_notion_id(value: str) -> str:
+    """Accept a raw id or a Notion URL and return the 32-hex id."""
+    matches = re.findall(r"[0-9a-fA-F]{32}", value.replace("-", ""))
+    return matches[-1] if matches else value.strip()
+
+
+def _title(text: str) -> list[dict]:
+    return [{"type": "text", "text": {"content": text}}]
+
+
+def _relation(database_id: str) -> dict:
+    return {"relation": {"database_id": database_id, "single_property": {}}}
+
+
+def _select(options: tuple[str, ...]) -> dict:
+    return {"select": {"options": [{"name": name} for name in options]}}
+
+
+def _upsert_env(env_path: Path, values: dict[str, str]) -> None:
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    seen: set[str] = set()
+    out: list[str] = []
+    for line in lines:
+        match = re.match(r"^([A-Z0-9_]+)=", line)
+        if match and match.group(1) in values:
+            out.append(f"{match.group(1)}={values[match.group(1)]}")
+            seen.add(match.group(1))
+        else:
+            out.append(line)
+    for key, value in values.items():
+        if key not in seen:
+            out.append(f"{key}={value}")
+    env_path.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+
+def init_research_map(
+    settings: Settings,
+    *,
+    parent_page_id: str,
+    write_env: bool = False,
+) -> str:
+    """Create the 4 research-map databases + a Landscape page via the Notion API.
+
+    Creation order matters: relation properties can only target databases that
+    already exist (Papers exists; then Problems before Concepts/Gaps reference it).
+    """
+    if not settings.notion_token:
+        raise RuntimeError("NOTION_TOKEN is required to create the research-map databases.")
+    papers_id = settings.notion_database_id
+    if not papers_id:
+        raise RuntimeError(
+            "NOTION_DATABASE_ID (the existing Papers database) must be configured before `map init`."
+        )
+
+    client = Client(auth=settings.notion_token)
+    parent = {"type": "page_id", "page_id": extract_notion_id(parent_page_id)}
+
+    def create_db(name: str, properties: dict) -> str:
+        try:
+            response = client.databases.create(parent=parent, title=_title(name), properties=properties)
+        except APIResponseError as error:
+            raise RuntimeError(
+                f"Failed to create the {name} database ({error.code}). "
+                "Check that the parent page id is correct and shared with your Notion integration."
+            ) from error
+        return response["id"]
+
+    problems_id = create_db(
+        "Problems",
+        {
+            "Name": {"title": {}},
+            "Description": {"rich_text": {}},
+            "Status": _select(("open", "active", "addressed")),
+            "Papers": _relation(papers_id),
+        },
+    )
+    concepts_id = create_db(
+        "Concepts",
+        {
+            "Name": {"title": {}},
+            "Kind": _select(CONCEPT_KINDS),
+            "Description": {"rich_text": {}},
+            "Papers": _relation(papers_id),
+            "Problems": _relation(problems_id),
+        },
+    )
+    relations_id = create_db(
+        "Relations",
+        {
+            "Name": {"title": {}},
+            "Source": {"rich_text": {}},
+            "Target": {"rich_text": {}},
+            "Type": _select(RELATION_TYPES),
+            "Rationale": {"rich_text": {}},
+        },
+    )
+    gaps_id = create_db(
+        "Gaps",
+        {
+            "Name": {"title": {}},
+            "Rationale": {"rich_text": {}},
+            "Related": _relation(concepts_id),
+            "Papers": _relation(papers_id),
+        },
+    )
+
+    try:
+        landscape = client.pages.create(
+            parent=parent,
+            properties={"title": {"title": _title("Research Map — Landscape")}},
+        )
+    except APIResponseError as error:
+        raise RuntimeError(f"Databases created, but the Landscape page failed ({error.code}).") from error
+    landscape_id = landscape["id"]
+
+    values = {
+        "NOTION_PROBLEMS_DATABASE_ID": problems_id,
+        "NOTION_CONCEPTS_DATABASE_ID": concepts_id,
+        "NOTION_RELATIONS_DATABASE_ID": relations_id,
+        "NOTION_GAPS_DATABASE_ID": gaps_id,
+        "NOTION_LANDSCAPE_PAGE_ID": landscape_id,
+    }
+    lines = [f"{key}={value}" for key, value in values.items()]
+    if write_env:
+        env_path = Path(".env").resolve()
+        _upsert_env(env_path, values)
+        lines.append(f"WROTE_ENV:{env_path}")
+    else:
+        lines.append("Add these to your .env (or re-run with --write-env).")
+    return "\n".join(lines)
 
 
 def check_map_setup(settings: Settings) -> str:
