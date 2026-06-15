@@ -71,9 +71,13 @@ into canonical names, so the same concept from different papers becomes one node
 
 ## Rendering
 
-- `landscape.html` is a static file using **Cytoscape.js** (real force /
-  hierarchical / timeline layouts, zoom, 100s of nodes — the chat mockup used
-  hand-placed SVG only to convey interaction).
+- `map render` reads `graph.json` (the local mirror of the synced Notion data) and
+  writes a self-contained `landscape.html` with the data inlined.
+- `landscape.html` is a static file using **Cytoscape.js** (force / concentric /
+  breadth-first / circle layouts, zoom, 100s of nodes — the chat mockup used
+  hand-placed SVG only to convey interaction). Node color = type, size = linked
+  paper count; click a node for its description, related nodes, and papers; plus
+  view filter and search. `--serve` runs it on localhost.
 - Node color encodes type (problem = purple, concept = teal, gap = amber), size
   encodes linked-paper count; edges carry the relation type.
 - Right-hand detail inspector shows the selected node's papers, related nodes,
@@ -93,6 +97,6 @@ into canonical names, so the same concept from different papers becomes one node
 - [x] 1. Schema + scaffolding — Pydantic models, config, `map` CLI group (`init`/`check`), this doc
 - [x] 2. Extraction — `map build`: per-paper extraction, cache + dedup → graph.json
 - [x] 3. Notion sync — `map sync` upserts Problems/Concepts/Relations/Gaps by name, links Papers
-- [ ] 4. Render — `map render` → Cytoscape `landscape.html` + local serve
+- [x] 4. Render — `map render` → self-contained Cytoscape `landscape.html` (+ `--serve`)
 - [ ] 5. Plugin wiring — "Open Research Map" action + settings
 - [ ] 6. Polish — view modes, gap highlighting, timeline layout, inspector

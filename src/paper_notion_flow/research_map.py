@@ -747,6 +747,123 @@ def sync_research_map(settings: Settings, *, data_dir: Path, dry_run: bool = Fal
     )
 
 
+LANDSCAPE_TEMPLATE = """<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Research Map</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+<style>
+  :root{color-scheme:light dark;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f2937;background:#f8fafc;}
+  #bar{position:fixed;top:0;left:0;right:0;height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;background:#fff;border-bottom:1px solid #e5e7eb;z-index:10;flex-wrap:wrap;}
+  #bar b{font-size:14px;margin-right:8px;}
+  .btn{font-size:12px;padding:4px 10px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer;color:#374151;}
+  .btn.on{background:#eef2ff;border-color:#6366f1;color:#4f46e5;}
+  #search{font-size:12px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;width:150px;}
+  select{font-size:12px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;}
+  .legend{display:flex;gap:10px;font-size:12px;color:#6b7280;align-items:center;}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
+  #cy{position:fixed;top:46px;left:0;right:300px;bottom:0;}
+  #detail{position:fixed;top:46px;right:0;bottom:0;width:300px;background:#fff;border-left:1px solid #e5e7eb;padding:14px 16px;overflow:auto;font-size:13px;line-height:1.6;}
+  #detail h3{margin:6px 0 4px;font-size:15px;}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;margin-bottom:8px;}
+  .paper{font-size:12px;color:#4b5563;padding:3px 0;border-top:1px solid #f1f5f9;}
+  .muted{color:#9ca3af;}
+  @media(prefers-color-scheme:dark){
+    body{color:#e5e7eb;background:#18181b;}
+    #bar,#detail{background:#27272a;border-color:#3f3f46;}
+    .btn{background:#27272a;border-color:#3f3f46;color:#d4d4d8;}
+    #cy{background:#18181b;}
+    .paper{color:#a1a1aa;border-color:#3f3f46;}
+  }
+</style>
+</head>
+<body>
+<div id="bar">
+  <b>Research map</b>
+  <button class="btn on" data-v="all">All</button>
+  <button class="btn" data-v="problem">Problems</button>
+  <button class="btn" data-v="concept">Concepts</button>
+  <button class="btn" data-v="gap">Gaps</button>
+  <input id="search" placeholder="搜索节点" />
+  <select id="layout">
+    <option value="cose">力导向</option>
+    <option value="concentric">同心</option>
+    <option value="breadthfirst">层级</option>
+    <option value="circle">环形</option>
+  </select>
+  <span class="legend">
+    <span><span class="dot" style="background:#7F77DD"></span>Problem</span>
+    <span><span class="dot" style="background:#1D9E75"></span>Concept</span>
+    <span><span class="dot" style="background:#BA7517"></span>Gap</span>
+  </span>
+</div>
+<div id="cy"></div>
+<div id="detail"><p class="muted">点击任意节点查看详情、关联论文与关系。</p></div>
+<script>
+const GRAPH = __GRAPH_DATA__;
+const COLORS = {problem:"#7F77DD", concept:"#1D9E75", gap:"#BA7517"};
+const seen = new Set(), nodes = [];
+function add(arr, cat){ for(const n of arr){ if(!n.name||seen.has(n.name)) continue; seen.add(n.name); const papers=n.papers||[]; nodes.push({data:{id:n.name,label:n.name,cat:cat,color:COLORS[cat],size:18+Math.min(42,papers.length*6),detail:n.description||n.rationale||"",kind:n.kind||"",papers:papers,related:n.related||[]}}); } }
+add(GRAPH.concepts||[], "concept"); add(GRAPH.problems||[], "problem"); add(GRAPH.gaps||[], "gap");
+const edges = [];
+(GRAPH.relations||[]).forEach((r,i)=>{ if(seen.has(r.source)&&seen.has(r.target)) edges.push({data:{id:"r"+i,source:r.source,target:r.target,label:r.type||"",rationale:r.rationale||""}}); });
+(GRAPH.gaps||[]).forEach((g,i)=>{ (g.related||[]).forEach((t,j)=>{ if(seen.has(g.name)&&seen.has(t)) edges.push({data:{id:"g"+i+"_"+j,source:g.name,target:t,label:"gap"}}); }); });
+const cy = cytoscape({
+  container: document.getElementById("cy"),
+  elements: {nodes:nodes, edges:edges},
+  style: [
+    {selector:"node", style:{"background-color":"data(color)","label":"data(label)","font-size":"10px","width":"data(size)","height":"data(size)","text-wrap":"wrap","text-max-width":"90px","text-valign":"bottom","text-margin-y":"3px","color":"#6b7280"}},
+    {selector:"edge", style:{"width":1.4,"line-color":"#c7cdd6","curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#c7cdd6","arrow-scale":0.8}},
+    {selector:".dim", style:{"opacity":0.12}},
+    {selector:".hot", style:{"line-color":"#6366f1","target-arrow-color":"#6366f1","width":2.2,"opacity":1}},
+    {selector:"node:selected", style:{"border-width":3,"border-color":"#4f46e5"}}
+  ],
+  layout: {name:"cose", animate:false, padding:30}
+});
+function esc(s){ return (s||"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function showNode(n){
+  const d=n.data();
+  const papers=(d.papers||[]).map(p=>'<div class="paper">'+esc(p)+'</div>').join("")||'<span class="muted">无</span>';
+  const rel=(d.related||[]).length?'<p class="muted" style="margin:8px 0 2px">关联</p>'+d.related.map(r=>esc(r)).join("、"):"";
+  const label={problem:"研究问题",concept:"概念/方法",gap:"研究空白"}[d.cat]||d.cat;
+  document.getElementById("detail").innerHTML =
+    '<span class="tag" style="background:'+d.color+'22;color:'+d.color+'">'+label+(d.kind?(" · "+esc(d.kind)):"")+'</span>'+
+    '<h3>'+esc(d.label)+'</h3>'+
+    '<p>'+esc(d.detail)+'</p>'+rel+
+    '<p class="muted" style="margin:10px 0 2px">关联论文 ('+(d.papers||[]).length+')</p>'+papers;
+}
+cy.on("tap","node", e=>{
+  const n=e.target, nb=n.closedNeighborhood();
+  cy.elements().addClass("dim"); nb.removeClass("dim");
+  cy.edges().removeClass("hot"); n.connectedEdges().addClass("hot").removeClass("dim");
+  showNode(n);
+});
+cy.on("tap", e=>{ if(e.target===cy){ cy.elements().removeClass("dim hot"); } });
+let view="all";
+document.querySelectorAll("#bar .btn").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#bar .btn").forEach(x=>x.classList.remove("on")); b.classList.add("on"); view=b.dataset.v;
+  cy.nodes().forEach(n=>{ n.toggleClass("dim", view!=="all" && n.data("cat")!==view); });
+  cy.edges().removeClass("hot");
+}));
+document.getElementById("search").addEventListener("input",e=>{
+  const q=e.target.value.trim().toLowerCase();
+  if(!q){ cy.elements().removeClass("dim"); return; }
+  cy.nodes().forEach(n=>n.toggleClass("dim", !n.data("label").toLowerCase().includes(q)));
+  cy.edges().addClass("dim");
+});
+document.getElementById("layout").addEventListener("change",e=>{
+  cy.layout({name:e.target.value, animate:false, padding:30}).run();
+});
+</script>
+</body>
+</html>
+"""
+
+
 def render_research_map(
     settings: Settings,
     *,
@@ -754,11 +871,43 @@ def render_research_map(
     output: Path | None = None,
     serve: bool = False,
 ) -> str:
-    """Render landscape.html (Cytoscape) from the Notion databases.
+    """Render an interactive Cytoscape landscape.html from graph.json (step 4)."""
+    graph_path = data_dir / "research-map" / "graph.json"
+    if not graph_path.exists():
+        raise RuntimeError(f"{graph_path} not found. Run `map build` first.")
+    graph = json.loads(graph_path.read_text(encoding="utf-8"))
 
-    Implemented in roadmap step 4 (render).
-    """
-    raise NotImplementedError(
-        "map render lands in roadmap step 4 (Cytoscape landscape.html). "
-        "Schema and scaffolding are in place; see docs/RESEARCH_MAP.md."
+    html = LANDSCAPE_TEMPLATE.replace("__GRAPH_DATA__", json.dumps(graph, ensure_ascii=False))
+    out_path = output or (data_dir / "research-map" / "landscape.html")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(html, encoding="utf-8")
+
+    counts = (
+        f"{len(graph.get('problems', []))} problems, {len(graph.get('concepts', []))} concepts, "
+        f"{len(graph.get('relations', []))} relations, {len(graph.get('gaps', []))} gaps"
+    )
+
+    if serve:
+        import functools
+        import http.server
+        import socketserver
+
+        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(out_path.parent))
+        with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
+            port = httpd.server_address[1]
+            print(f"MAP_RENDER:OK ({counts})")
+            print(f"Serving at http://127.0.0.1:{port}/{out_path.name}  (Ctrl+C to stop)")
+            try:
+                httpd.serve_forever()
+            except KeyboardInterrupt:
+                pass
+        return "Server stopped."
+
+    return "\n".join(
+        [
+            "MAP_RENDER:OK",
+            f"GRAPH:{counts}",
+            f"LANDSCAPE_HTML:{out_path}",
+            "Open it in a browser (needs internet for the Cytoscape CDN).",
+        ]
     )
