@@ -125,3 +125,18 @@ class ResearchMapExtraction(BaseModel):
     concepts: list[MapConcept] = Field(default_factory=list)
     relations: list[MapRelation] = Field(default_factory=list)
     gaps: list[MapGap] = Field(default_factory=list)
+
+
+class MergeGroup(BaseModel):
+    canonical: str = Field(description="The single canonical name for this group of synonyms.")
+    aliases: list[str] = Field(
+        default_factory=list,
+        description="All extracted names that refer to the same thing (include the canonical name too).",
+    )
+
+
+class MergeResult(BaseModel):
+    groups: list[MergeGroup] = Field(
+        default_factory=list,
+        description="Only groups that actually merge (2+ aliases). Singletons may be omitted.",
+    )

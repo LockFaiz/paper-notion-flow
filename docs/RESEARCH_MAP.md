@@ -63,7 +63,10 @@ with your integration), then prints the ids — `--write-env` upserts them into
 `map build` reads the Papers database (filter with `--collection`), extracts per
 paper (guide text preferred, abstract fallback), caches + dedups into
 `<data-dir>/research-map/graph.json`, and is incremental (re-extracts only papers
-whose Notion `last_edited` changed; `--force` re-extracts all).
+whose Notion `last_edited` changed; `--force` re-extracts all). Node names use the
+configured guide language (well-known acronyms kept in English). After per-paper
+extraction a global consolidation pass asks the AI to cluster synonymous nodes
+into canonical names, so the same concept from different papers becomes one node.
 
 ## Rendering
 

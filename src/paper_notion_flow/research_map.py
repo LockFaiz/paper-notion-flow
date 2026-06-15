@@ -10,7 +10,7 @@ from notion_client.errors import APIResponseError
 
 from .ai import LANGUAGE_NAMES, run_structured_extraction
 from .config import Settings
-from .models import ResearchMapExtraction
+from .models import MergeResult, ResearchMapExtraction
 from .notion_writer import TEXT, NotionWriter
 from .state import SyncState
 
@@ -54,9 +54,13 @@ Use exactly this JSON schema:
 }}
 
 Extraction rules:
-- Names are short, reusable noun phrases (e.g. "world models", "sample efficiency"),
-  NOT sentences and NOT paper-specific phrasings — so the same concept from two
-  papers produces the same name and can be merged.
+- Node names (problems, concepts, gaps) MUST be written in {language_name}, EXCEPT
+  widely-used acronyms and proper names conventionally kept in English (e.g. DQN,
+  SAC, PPO, MDP, GNN, CNN, SO(2), KOVI, and dataset/benchmark names). This keeps the
+  same concept from different papers under one name.
+- Names are short, CANONICAL noun phrases with NO paper-specific qualifiers — use the
+  general term so it merges across papers. E.g. use the equivalent of "样本效率", not
+  "扩散策略样本效率" or "机器人操作样本效率"; "数据增强", not "旋转数据增强".
 - relations.source/target MUST be names that appear in this extraction's problems
   or concepts.
 - A gap is something this paper reveals as unaddressed, untested, or missing —
@@ -75,9 +79,31 @@ Paper reading guide / content:
 """
 
 
+MERGE_PROMPT = """You are consolidating a research map. Below is a list of {label}
+extracted from multiple papers, one per line. Group the entries that refer to the
+SAME thing and give each group one canonical name.
+
+Rules:
+- Only merge true synonyms / same referent (e.g. "群不变 MDP" and "group-invariant MDP";
+  "样本效率" and "sample efficiency"). Do NOT merge related-but-distinct concepts.
+- The canonical name MUST be in {language_name}, except widely-used acronyms / proper
+  names conventionally kept in English (DQN, SAC, MDP, GNN, SO(2), KOVI, dataset names).
+- Only output groups that actually merge (2 or more aliases). Omit singletons.
+- Return only valid JSON, no markdown fences:
+{{"groups": [{{"canonical": "string", "aliases": ["string", "string"]}}]}}
+
+{label} list:
+{items}
+"""
+
+
 def normalize_node_name(name: str) -> str:
     """Canonical key for dedup/merge across papers."""
     return re.sub(r"\s+", " ", name.strip().lower())
+
+
+def _language_name(settings: Settings) -> str:
+    return LANGUAGE_NAMES.get(settings.guide_language, "Simplified Chinese")
 
 
 def extract_notion_id(value: str) -> str:
@@ -349,7 +375,7 @@ def _iter_papers(writer: NotionWriter, settings: Settings, collections: list[str
 def _extract_for_paper(
     writer: NotionWriter, settings: Settings, paper: PaperContent, prompt_override: str | None
 ) -> ResearchMapExtraction:
-    language_name = LANGUAGE_NAMES.get(settings.guide_language, "Simplified Chinese")
+    language_name = _language_name(settings)
     content = _read_guide_text(writer, paper.page_id) or paper.abstract or paper.title
     prompt = EXTRACTION_PROMPT.format(
         language_name=language_name,
@@ -416,6 +442,61 @@ def _graph_to_json(graph: dict[str, dict]) -> dict:
     return {"problems": problems, "concepts": concepts, "relations": relations, "gaps": gaps}
 
 
+def _canonical_map(settings: Settings, names: list[str], label: str) -> dict[str, str]:
+    """Ask the AI to cluster synonymous names; return alias -> canonical."""
+    unique = sorted({name for name in names if name})
+    if len(unique) < 2:
+        return {}
+    prompt = MERGE_PROMPT.format(
+        label=label,
+        language_name=_language_name(settings),
+        items="\n".join(f"- {name}" for name in unique),
+    )
+    result = run_structured_extraction(settings, prompt, MergeResult)
+    mapping: dict[str, str] = {}
+    for group in result.groups:
+        canonical = group.canonical.strip()
+        if not canonical:
+            continue
+        for alias in group.aliases:
+            alias = alias.strip()
+            if alias:
+                mapping[alias] = canonical
+        mapping[canonical] = canonical
+    return mapping
+
+
+def _resolve(mapping: dict[str, str], name: str) -> str:
+    return mapping.get(name, name)
+
+
+def _apply_merge(graph: dict[str, dict], nodemap: dict[str, str], gapmap: dict[str, str]) -> dict[str, dict]:
+    merged: dict[str, dict] = {"problems": {}, "concepts": {}, "relations": {}, "gaps": {}}
+    for category in ("problems", "concepts"):
+        for node in graph[category].values():
+            canonical = _resolve(nodemap, node.name)
+            target = merged[category].setdefault(normalize_node_name(canonical), _Node(canonical))
+            target.detail = target.detail or node.detail
+            target.kind = target.kind or node.kind
+            target.papers |= node.papers
+    for node in graph["gaps"].values():
+        canonical = _resolve(gapmap, node.name)
+        target = merged["gaps"].setdefault(normalize_node_name(canonical), _Node(canonical))
+        target.detail = target.detail or node.detail
+        target.related |= {_resolve(nodemap, related) for related in node.related}
+        target.papers |= node.papers
+    for node in graph["relations"].values():
+        source = _resolve(nodemap, node.name)
+        target_name = _resolve(nodemap, next(iter(node.related), ""))
+        if not target_name or source == target_name:
+            continue
+        key = (normalize_node_name(source), normalize_node_name(target_name), node.kind)
+        relation = merged["relations"].setdefault(key, _Node(source, detail=node.detail, kind=node.kind))
+        relation.related.add(target_name)
+        relation.papers |= node.papers
+    return merged
+
+
 def build_research_map(
     settings: Settings,
     *,
@@ -461,6 +542,13 @@ def build_research_map(
             extracted += 1
         _merge(graph, extraction, paper.title or paper.page_id)
 
+    before = {key: len(value) for key, value in graph.items()}
+    node_names = [n.name for n in graph["problems"].values()] + [n.name for n in graph["concepts"].values()]
+    gap_names = [n.name for n in graph["gaps"].values()]
+    nodemap = _canonical_map(settings, node_names, "research problems and concepts")
+    gapmap = _canonical_map(settings, gap_names, "research gaps")
+    graph = _apply_merge(graph, nodemap, gapmap)
+
     graph_json = _graph_to_json(graph)
     graph_path = data_dir / "research-map" / "graph.json"
     graph_path.write_text(json.dumps(graph_json, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -469,10 +557,10 @@ def build_research_map(
         [
             "MAP_BUILD:OK",
             f"PAPERS:{len(papers)} (extracted {extracted}, reused {cached})",
-            f"PROBLEMS:{len(graph_json['problems'])}",
-            f"CONCEPTS:{len(graph_json['concepts'])}",
-            f"RELATIONS:{len(graph_json['relations'])}",
-            f"GAPS:{len(graph_json['gaps'])}",
+            f"PROBLEMS:{before['problems']}->{len(graph_json['problems'])}",
+            f"CONCEPTS:{before['concepts']}->{len(graph_json['concepts'])}",
+            f"RELATIONS:{before['relations']}->{len(graph_json['relations'])}",
+            f"GAPS:{before['gaps']}->{len(graph_json['gaps'])}",
             f"GRAPH_JSON:{graph_path}",
             "Notion sync lands in step 3.",
         ]
