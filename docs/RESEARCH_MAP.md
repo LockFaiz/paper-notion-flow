@@ -52,7 +52,8 @@ dedup pattern. No new external services; everything is local + the user's Notion
 ```
 paper-notion-flow map init --parent <page-id> [--write-env]   # auto-create the 4 DBs + Landscape page (step 1)
 paper-notion-flow map check    # validate the 5 DB ids + token (step 1)
-paper-notion-flow map build    # extract + sync nodes/edges/gaps to Notion (steps 2–3)
+paper-notion-flow map build    # extract + consolidate nodes/edges/gaps -> graph.json (step 2)
+paper-notion-flow map sync     # write graph.json into the 4 databases (step 3; --dry-run to preview)
 paper-notion-flow map render   # build landscape.html from Notion + optionally serve (step 4)
 ```
 
@@ -91,7 +92,7 @@ into canonical names, so the same concept from different papers becomes one node
 
 - [x] 1. Schema + scaffolding — Pydantic models, config, `map` CLI group (`init`/`check`), this doc
 - [x] 2. Extraction — `map build`: per-paper extraction, cache + dedup → graph.json
-- [ ] 3. Notion sync — write/dedup Problems/Concepts/Relations/Gaps
+- [x] 3. Notion sync — `map sync` upserts Problems/Concepts/Relations/Gaps by name, links Papers
 - [ ] 4. Render — `map render` → Cytoscape `landscape.html` + local serve
 - [ ] 5. Plugin wiring — "Open Research Map" action + settings
 - [ ] 6. Polish — view modes, gap highlighting, timeline layout, inspector

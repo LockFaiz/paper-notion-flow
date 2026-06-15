@@ -5,7 +5,13 @@ import time
 from pathlib import Path
 
 from .config import Settings
-from .research_map import build_research_map, check_map_setup, init_research_map, render_research_map
+from .research_map import (
+    build_research_map,
+    check_map_setup,
+    init_research_map,
+    render_research_map,
+    sync_research_map,
+)
 from .workflow import check_notion, import_pdf_document, process_zotero_item, prune_zotero_deletions, sync_zotero
 
 
@@ -85,6 +91,10 @@ def build_parser() -> argparse.ArgumentParser:
     map_build.add_argument("--data-dir", default="data", help="Directory for markdown and state.")
     map_build.add_argument("--force", action="store_true", help="Re-extract even if a paper was already mapped.")
     _add_prompt_override_args(map_build)
+
+    map_sync = map_sub.add_parser("sync", help="Write graph.json into the 4 research-map Notion databases.")
+    map_sync.add_argument("--data-dir", default="data", help="Directory holding research-map/graph.json.")
+    map_sync.add_argument("--dry-run", action="store_true", help="Preview counts without writing to Notion.")
 
     map_render = map_sub.add_parser("render", help="Render landscape.html from the Notion databases.")
     map_render.add_argument("--data-dir", default="data", help="Directory for the rendered landscape file.")
@@ -182,6 +192,15 @@ def main() -> None:
                     collections=args.collection,
                     force=args.force,
                     prompt_override=prompt_override,
+                )
+            )
+            return
+        if args.map_command == "sync":
+            print(
+                sync_research_map(
+                    settings=settings,
+                    data_dir=Path(args.data_dir),
+                    dry_run=args.dry_run,
                 )
             )
             return

@@ -565,7 +565,184 @@ def build_research_map(
             f"GAPS:{before['gaps']}->{len(graph_json['gaps'])}",
             f"MERGED_ALIASES:nodes={len(nodemap)} gaps={len(gapmap)}",
             f"GRAPH_JSON:{graph_path}",
-            "Notion sync lands in step 3.",
+            "Run `paper-notion-flow map sync` to write these into Notion.",
+        ]
+    )
+
+
+def _rich_text(value: str) -> dict:
+    return {"rich_text": [{"text": {"content": value[:2000]}}]}
+
+
+def _select_value(value: str) -> dict:
+    return {"select": {"name": value[:100]}}
+
+
+def _relation_ids(ids: list[str]) -> dict:
+    return {"relation": [{"id": page_id} for page_id in ids]}
+
+
+class _MapDatabase:
+    """Minimal upsert wrapper for one research-map database (data-source aware)."""
+
+    def __init__(self, client: Client, database_id: str) -> None:
+        self.client = client
+        self.database_id = database_id
+        database = client.databases.retrieve(database_id)
+        if "properties" in database:
+            self.properties = database["properties"]
+            self.data_source_id = None
+        else:
+            self.data_source_id = database["data_sources"][0]["id"]
+            self.properties = client.data_sources.retrieve(self.data_source_id)["properties"]
+        self.title_property = next(
+            (name for name, schema in self.properties.items() if schema["type"] == "title"), "Name"
+        )
+
+    def has(self, prop: str, prop_type: str) -> bool:
+        schema = self.properties.get(prop)
+        return bool(schema) and schema["type"] == prop_type
+
+    def _query(self, **kwargs):
+        if self.data_source_id:
+            return self.client.data_sources.query(data_source_id=self.data_source_id, **kwargs)
+        return self.client.databases.query(database_id=self.database_id, **kwargs)
+
+    def find_by_title(self, name: str) -> str | None:
+        response = self._query(
+            page_size=1, filter={"property": self.title_property, "title": {"equals": name[:2000]}}
+        )
+        results = response.get("results", [])
+        return results[0]["id"] if results else None
+
+    def upsert(self, name: str, properties: dict) -> tuple[str, bool]:
+        payload = dict(properties)
+        payload[self.title_property] = {"title": [{"text": {"content": name[:2000]}}]}
+        existing = self.find_by_title(name)
+        if existing:
+            self.client.pages.update(page_id=existing, properties=payload)
+            return existing, False
+        parent = {"data_source_id": self.data_source_id} if self.data_source_id else {"database_id": self.database_id}
+        page = self.client.pages.create(parent=parent, properties=payload)
+        return page["id"], True
+
+
+def sync_research_map(settings: Settings, *, data_dir: Path, dry_run: bool = False) -> str:
+    """Write graph.json into the Problems/Concepts/Relations/Gaps databases.
+
+    Step 3. Upserts by title (name) so re-runs update rather than duplicate.
+    """
+    if not settings.notion_token:
+        raise RuntimeError("NOTION_TOKEN is required.")
+    required = {
+        "Problems": settings.notion_problems_database_id,
+        "Concepts": settings.notion_concepts_database_id,
+        "Relations": settings.notion_relations_database_id,
+        "Gaps": settings.notion_gaps_database_id,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise RuntimeError(f"Missing database ids for: {', '.join(missing)}. Run `map init` / set them in .env.")
+
+    graph_path = data_dir / "research-map" / "graph.json"
+    if not graph_path.exists():
+        raise RuntimeError(f"{graph_path} not found. Run `map build` first.")
+    graph = json.loads(graph_path.read_text(encoding="utf-8"))
+
+    # Papers title -> page id, so nodes can link back to the paper rows.
+    writer = NotionWriter(settings)
+    paper_map: dict[str, str] = {}
+    for page in writer._iter_database_pages():
+        title = _title_property(page)
+        if title:
+            paper_map[title] = page["id"]
+
+    def paper_links(titles: list[str]) -> list[str]:
+        return [paper_map[title] for title in titles if title in paper_map]
+
+    if dry_run:
+        matched = sum(len(paper_links(n["papers"])) for cat in ("problems", "concepts", "gaps") for n in graph[cat])
+        total = sum(len(n["papers"]) for cat in ("problems", "concepts", "gaps") for n in graph[cat])
+        return "\n".join(
+            [
+                "MAP_SYNC:DRY_RUN",
+                f"PROBLEMS:{len(graph['problems'])}",
+                f"CONCEPTS:{len(graph['concepts'])}",
+                f"RELATIONS:{len(graph['relations'])}",
+                f"GAPS:{len(graph['gaps'])}",
+                f"PAPER_LINKS:matched {matched}/{total}",
+                "No pages written (dry run).",
+            ]
+        )
+
+    client = Client(auth=settings.notion_token)
+    problems_db = _MapDatabase(client, required["Problems"])
+    concepts_db = _MapDatabase(client, required["Concepts"])
+    relations_db = _MapDatabase(client, required["Relations"])
+    gaps_db = _MapDatabase(client, required["Gaps"])
+
+    def counts() -> dict[str, int]:
+        return {"created": 0, "updated": 0}
+
+    stats = {"problems": counts(), "concepts": counts(), "gaps": counts(), "relations": counts()}
+
+    problem_ids: dict[str, str] = {}
+    for problem in graph["problems"]:
+        props: dict = {}
+        if problems_db.has("Description", "rich_text"):
+            props["Description"] = _rich_text(problem["description"])
+        if problems_db.has("Papers", "relation"):
+            props["Papers"] = _relation_ids(paper_links(problem["papers"]))
+        page_id, created = problems_db.upsert(problem["name"], props)
+        problem_ids[problem["name"]] = page_id
+        stats["problems"]["created" if created else "updated"] += 1
+
+    concept_ids: dict[str, str] = {}
+    for concept in graph["concepts"]:
+        props = {}
+        if concept.get("kind") and concepts_db.has("Kind", "select"):
+            props["Kind"] = _select_value(concept["kind"])
+        if concepts_db.has("Description", "rich_text"):
+            props["Description"] = _rich_text(concept["description"])
+        if concepts_db.has("Papers", "relation"):
+            props["Papers"] = _relation_ids(paper_links(concept["papers"]))
+        page_id, created = concepts_db.upsert(concept["name"], props)
+        concept_ids[concept["name"]] = page_id
+        stats["concepts"]["created" if created else "updated"] += 1
+
+    for gap in graph["gaps"]:
+        props = {}
+        if gaps_db.has("Rationale", "rich_text"):
+            props["Rationale"] = _rich_text(gap["rationale"])
+        if gaps_db.has("Papers", "relation"):
+            props["Papers"] = _relation_ids(paper_links(gap["papers"]))
+        if gaps_db.has("Related", "relation"):
+            props["Related"] = _relation_ids([concept_ids[r] for r in gap["related"] if r in concept_ids])
+        _, created = gaps_db.upsert(gap["name"], props)
+        stats["gaps"]["created" if created else "updated"] += 1
+
+    for relation in graph["relations"]:
+        name = f"{relation['source']} → {relation['target']} ({relation['type']})"
+        props = {}
+        if relations_db.has("Source", "rich_text"):
+            props["Source"] = _rich_text(relation["source"])
+        if relations_db.has("Target", "rich_text"):
+            props["Target"] = _rich_text(relation["target"])
+        if relation.get("type") and relations_db.has("Type", "select"):
+            props["Type"] = _select_value(relation["type"])
+        if relations_db.has("Rationale", "rich_text"):
+            props["Rationale"] = _rich_text(relation["rationale"])
+        _, created = relations_db.upsert(name, props)
+        stats["relations"]["created" if created else "updated"] += 1
+
+    return "\n".join(
+        [
+            "MAP_SYNC:OK",
+            f"PROBLEMS:created {stats['problems']['created']} updated {stats['problems']['updated']}",
+            f"CONCEPTS:created {stats['concepts']['created']} updated {stats['concepts']['updated']}",
+            f"GAPS:created {stats['gaps']['created']} updated {stats['gaps']['updated']}",
+            f"RELATIONS:created {stats['relations']['created']} updated {stats['relations']['updated']}",
+            f"PAPERS_INDEXED:{len(paper_map)}",
         ]
     )
 
