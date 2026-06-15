@@ -79,18 +79,22 @@ Paper reading guide / content:
 """
 
 
-MERGE_PROMPT = """You are consolidating a research map. Below is a list of {label}
-extracted from multiple papers, one per line. Group the entries that refer to the
-SAME thing and give each group one canonical name.
+MERGE_PROMPT = """You are consolidating a research map. Below is a NUMBERED list of
+{label} extracted from multiple papers. Group the entries that refer to the SAME
+thing and give each group one canonical name.
 
 Rules:
-- Only merge true synonyms / same referent (e.g. "群不变 MDP" and "group-invariant MDP";
-  "样本效率" and "sample efficiency"). Do NOT merge related-but-distinct concepts.
+- Actively merge: cross-language synonyms (e.g. "群不变 MDP" = "group-invariant MDP"),
+  singular/plural variants, and qualifier variants (e.g. "扩散策略样本效率",
+  "机器人操作样本效率" and "样本效率" are all the same entry).
+- Do NOT merge related-but-distinct concepts (e.g. "等变 DQN" and "等变 SAC" are
+  different methods; keep them separate).
 - The canonical name MUST be in {language_name}, except widely-used acronyms / proper
   names conventionally kept in English (DQN, SAC, MDP, GNN, SO(2), KOVI, dataset names).
-- Only output groups that actually merge (2 or more aliases). Omit singletons.
+- members are the NUMBERS of the entries in each group. Only output groups with 2 or
+  more members; omit singletons.
 - Return only valid JSON, no markdown fences:
-{{"groups": [{{"canonical": "string", "aliases": ["string", "string"]}}]}}
+{{"groups": [{{"canonical": "string", "members": [1, 5, 9]}}]}}
 
 {label} list:
 {items}
@@ -450,7 +454,7 @@ def _canonical_map(settings: Settings, names: list[str], label: str) -> dict[str
     prompt = MERGE_PROMPT.format(
         label=label,
         language_name=_language_name(settings),
-        items="\n".join(f"- {name}" for name in unique),
+        items="\n".join(f"{index + 1}. {name}" for index, name in enumerate(unique)),
     )
     result = run_structured_extraction(settings, prompt, MergeResult)
     mapping: dict[str, str] = {}
@@ -458,11 +462,9 @@ def _canonical_map(settings: Settings, names: list[str], label: str) -> dict[str
         canonical = group.canonical.strip()
         if not canonical:
             continue
-        for alias in group.aliases:
-            alias = alias.strip()
-            if alias:
-                mapping[alias] = canonical
-        mapping[canonical] = canonical
+        for index in group.members:
+            if 1 <= index <= len(unique):
+                mapping[unique[index - 1]] = canonical
     return mapping
 
 
@@ -561,6 +563,7 @@ def build_research_map(
             f"CONCEPTS:{before['concepts']}->{len(graph_json['concepts'])}",
             f"RELATIONS:{before['relations']}->{len(graph_json['relations'])}",
             f"GAPS:{before['gaps']}->{len(graph_json['gaps'])}",
+            f"MERGED_ALIASES:nodes={len(nodemap)} gaps={len(gapmap)}",
             f"GRAPH_JSON:{graph_path}",
             "Notion sync lands in step 3.",
         ]

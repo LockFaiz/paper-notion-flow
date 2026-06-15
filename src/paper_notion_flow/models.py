@@ -129,9 +129,9 @@ class ResearchMapExtraction(BaseModel):
 
 class MergeGroup(BaseModel):
     canonical: str = Field(description="The single canonical name for this group of synonyms.")
-    aliases: list[str] = Field(
+    members: list[int] = Field(
         default_factory=list,
-        description="All extracted names that refer to the same thing (include the canonical name too).",
+        description="The NUMBERS (from the input list) of the entries that refer to the same thing.",
     )
 
 
