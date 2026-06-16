@@ -795,111 +795,90 @@ LANDSCAPE_TEMPLATE = """<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Research Map</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
 <style>
   :root{color-scheme:light dark;}
   *{box-sizing:border-box;}
-  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f2937;background:#f8fafc;}
-  #bar{position:fixed;top:0;left:0;right:0;height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;background:#fff;border-bottom:1px solid #e5e7eb;z-index:10;flex-wrap:wrap;}
-  #bar b{font-size:14px;margin-right:8px;}
-  .btn{font-size:12px;padding:4px 10px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer;color:#374151;}
-  .btn.on{background:#eef2ff;border-color:#6366f1;color:#4f46e5;}
-  #search{font-size:12px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;width:150px;}
-  select{font-size:12px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;}
-  .legend{display:flex;gap:10px;font-size:12px;color:#6b7280;align-items:center;}
-  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
-  #cy{position:fixed;top:46px;left:0;right:300px;bottom:0;}
-  #detail{position:fixed;top:46px;right:0;bottom:0;width:300px;background:#fff;border-left:1px solid #e5e7eb;padding:14px 16px;overflow:auto;font-size:13px;line-height:1.6;}
-  #detail h3{margin:6px 0 4px;font-size:15px;}
-  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;margin-bottom:8px;}
-  .paper{font-size:12px;color:#4b5563;padding:3px 0;border-top:1px solid #f1f5f9;}
-  .muted{color:#9ca3af;}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f2937;background:#f8fafc;padding:18px 22px 48px;max-width:1000px;margin:0 auto;}
+  h1{font-size:19px;margin:0 0 2px;}
+  .sub{font-size:12px;color:#6b7280;margin:0 0 16px;}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:18px;}
+  .metric{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;}
+  .metric .k{font-size:12px;color:#6b7280;}
+  .metric .v{font-size:24px;font-weight:600;}
+  .trend{display:flex;align-items:flex-end;gap:8px;height:64px;margin:0;}
+  .trend .col{display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .trend .bar{width:26px;background:#7F77DD;border-radius:3px 3px 0 0;min-height:4px;}
+  .trend .lab{font-size:10px;color:#9ca3af;}
+  .trend .ct{font-size:10px;color:#6b7280;}
+  .sec{font-size:13px;font-weight:600;margin:22px 0 10px;}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 15px;margin-bottom:10px;}
+  .phead{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+  .pname{font-weight:600;font-size:14px;}
+  .pbadge{font-size:11px;background:#EEEDFE;color:#534AB7;padding:1px 8px;border-radius:6px;white-space:nowrap;}
+  .bar2{flex:1;height:6px;background:#eef2f7;border-radius:3px;overflow:hidden;min-width:60px;}
+  .bar2 i{display:block;height:100%;background:#7F77DD;}
+  .pdetail{font-size:12px;color:#6b7280;margin:0 0 8px;line-height:1.5;}
+  .row{font-size:12px;margin:6px 0;}
+  .row .lab{color:#9ca3af;margin-right:4px;}
+  .chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;margin:2px 3px 2px 0;}
+  .chip.m{background:#E1F5EE;color:#0F6E56;}
+  .chip.g{background:#FAEEDA;color:#854F0B;}
+  details{margin-top:6px;}
+  summary{font-size:12px;color:#6b7280;cursor:pointer;}
+  .paper{font-size:12px;color:#4b5563;padding:3px 0 3px 14px;}
   @media(prefers-color-scheme:dark){
     body{color:#e5e7eb;background:#18181b;}
-    #bar,#detail{background:#27272a;border-color:#3f3f46;}
-    .btn{background:#27272a;border-color:#3f3f46;color:#d4d4d8;}
-    #cy{background:#18181b;}
-    .paper{color:#a1a1aa;border-color:#3f3f46;}
+    .metric,.card{background:#27272a;border-color:#3f3f46;}
+    .bar2{background:#3f3f46;}
+    .paper{color:#a1a1aa;}
   }
 </style>
 </head>
 <body>
-<div id="bar">
-  <b>Research map</b>
-  <button class="btn on" data-v="all">All</button>
-  <button class="btn" data-v="problem">Problems</button>
-  <button class="btn" data-v="concept">Concepts</button>
-  <button class="btn" data-v="gap">Gaps</button>
-  <input id="search" placeholder="搜索节点" />
-  <select id="layout">
-    <option value="cose">力导向</option>
-    <option value="concentric">同心</option>
-    <option value="breadthfirst">层级</option>
-    <option value="circle">环形</option>
-  </select>
-  <span class="legend">
-    <span><span class="dot" style="background:#7F77DD"></span>Problem</span>
-    <span><span class="dot" style="background:#1D9E75"></span>Concept</span>
-    <span><span class="dot" style="background:#BA7517"></span>Gap</span>
-  </span>
-</div>
-<div id="cy"></div>
-<div id="detail"><p class="muted">点击任意节点查看详情、关联论文与关系。</p></div>
+<h1>研究地图</h1>
+<p class="sub" id="sub"></p>
+<div class="metrics" id="metrics"></div>
+<div id="trendwrap"></div>
+<div class="sec">按核心研究问题聚类(按论文比重排序)</div>
+<div id="clusters"></div>
+<div id="extra"></div>
 <script>
-const GRAPH = __GRAPH_DATA__;
-const COLORS = {problem:"#7F77DD", concept:"#1D9E75", gap:"#BA7517"};
-const seen = new Set(), nodes = [];
-function add(arr, cat){ for(const n of arr){ if(!n.name||seen.has(n.name)) continue; seen.add(n.name); const papers=n.papers||[]; nodes.push({data:{id:n.name,label:n.name,cat:cat,color:COLORS[cat],size:18+Math.min(42,papers.length*6),detail:n.description||n.rationale||"",kind:n.kind||"",papers:papers,related:n.related||[]}}); } }
-add(GRAPH.concepts||[], "concept"); add(GRAPH.problems||[], "problem"); add(GRAPH.gaps||[], "gap");
-const edges = [];
-(GRAPH.relations||[]).forEach((r,i)=>{ if(seen.has(r.source)&&seen.has(r.target)) edges.push({data:{id:"r"+i,source:r.source,target:r.target,label:r.type||"",rationale:r.rationale||""}}); });
-(GRAPH.gaps||[]).forEach((g,i)=>{ (g.related||[]).forEach((t,j)=>{ if(seen.has(g.name)&&seen.has(t)) edges.push({data:{id:"g"+i+"_"+j,source:g.name,target:t,label:"gap"}}); }); });
-const cy = cytoscape({
-  container: document.getElementById("cy"),
-  elements: {nodes:nodes, edges:edges},
-  style: [
-    {selector:"node", style:{"background-color":"data(color)","label":"data(label)","font-size":"10px","width":"data(size)","height":"data(size)","text-wrap":"wrap","text-max-width":"90px","text-valign":"bottom","text-margin-y":"3px","color":"#6b7280"}},
-    {selector:"edge", style:{"width":1.4,"line-color":"#c7cdd6","curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#c7cdd6","arrow-scale":0.8}},
-    {selector:".dim", style:{"opacity":0.12}},
-    {selector:".hot", style:{"line-color":"#6366f1","target-arrow-color":"#6366f1","width":2.2,"opacity":1}},
-    {selector:"node:selected", style:{"border-width":3,"border-color":"#4f46e5"}}
-  ],
-  layout: {name:"cose", animate:false, padding:30}
-});
-function esc(s){ return (s||"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
-function showNode(n){
-  const d=n.data();
-  const papers=(d.papers||[]).map(p=>'<div class="paper">'+esc(p)+'</div>').join("")||'<span class="muted">无</span>';
-  const rel=(d.related||[]).length?'<p class="muted" style="margin:8px 0 2px">关联</p>'+d.related.map(r=>esc(r)).join("、"):"";
-  const label={problem:"研究问题",concept:"概念/方法",gap:"研究空白"}[d.cat]||d.cat;
-  document.getElementById("detail").innerHTML =
-    '<span class="tag" style="background:'+d.color+'22;color:'+d.color+'">'+label+(d.kind?(" · "+esc(d.kind)):"")+'</span>'+
-    '<h3>'+esc(d.label)+'</h3>'+
-    '<p>'+esc(d.detail)+'</p>'+rel+
-    '<p class="muted" style="margin:10px 0 2px">关联论文 ('+(d.papers||[]).length+')</p>'+papers;
-}
-cy.on("tap","node", e=>{
-  const n=e.target, nb=n.closedNeighborhood();
-  cy.elements().addClass("dim"); nb.removeClass("dim");
-  cy.edges().removeClass("hot"); n.connectedEdges().addClass("hot").removeClass("dim");
-  showNode(n);
-});
-cy.on("tap", e=>{ if(e.target===cy){ cy.elements().removeClass("dim hot"); } });
-let view="all";
-document.querySelectorAll("#bar .btn").forEach(b=>b.addEventListener("click",()=>{
-  document.querySelectorAll("#bar .btn").forEach(x=>x.classList.remove("on")); b.classList.add("on"); view=b.dataset.v;
-  cy.nodes().forEach(n=>{ n.toggleClass("dim", view!=="all" && n.data("cat")!==view); });
-  cy.edges().removeClass("hot");
-}));
-document.getElementById("search").addEventListener("input",e=>{
-  const q=e.target.value.trim().toLowerCase();
-  if(!q){ cy.elements().removeClass("dim"); return; }
-  cy.nodes().forEach(n=>n.toggleClass("dim", !n.data("label").toLowerCase().includes(q)));
-  cy.edges().addClass("dim");
-});
-document.getElementById("layout").addEventListener("change",e=>{
-  cy.layout({name:e.target.value, animate:false, padding:30}).run();
-});
+const G = __GRAPH_DATA__;
+const problemsRaw=G.problems||[], concepts=G.concepts||[], gaps=G.gaps||[], relations=G.relations||[], dates=G.paper_dates||{};
+function esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+const conceptByName={}; concepts.forEach(c=>conceptByName[c.name]=c);
+const problems=problemsRaw.map(p=>({name:p.name,detail:p.description||"",papers:new Set(p.papers||[]),methods:[],mnames:new Set(),gaps:[],gnames:new Set()}));
+const pByName={}; problems.forEach(p=>pByName[p.name]=p);
+const conceptProblems={};
+relations.forEach(r=>{ const c=conceptByName[r.source], p=pByName[r.target]; if(c&&p){ if(!p.mnames.has(c.name)){p.mnames.add(c.name);p.methods.push(c);} (c.papers||[]).forEach(x=>p.papers.add(x)); (conceptProblems[c.name]=conceptProblems[c.name]||[]).push(p.name); } });
+const otherGaps=[];
+gaps.forEach(g=>{ let placed=false; (g.related||[]).forEach(rel=>{ let targets=[]; if(pByName[rel]) targets=[rel]; else if(conceptProblems[rel]) targets=conceptProblems[rel]; targets.forEach(pn=>{ const p=pByName[pn]; if(p&&!p.gnames.has(g.name)){p.gnames.add(g.name);p.gaps.push(g);placed=true;} }); }); if(!placed) otherGaps.push(g); });
+const used=new Set(); problems.forEach(p=>p.mnames.forEach(n=>used.add(n)));
+const otherMethods=concepts.filter(c=>!used.has(c.name));
+problems.sort((a,b)=>b.papers.size-a.papers.size);
+const maxP=Math.max(1,...problems.map(p=>p.papers.size));
+const allPapers=new Set(Object.keys(dates)); [...concepts,...problemsRaw,...gaps].forEach(n=>(n.papers||[]).forEach(x=>allPapers.add(x)));
+document.getElementById("sub").textContent=allPapers.size+" 篇论文 · 以核心问题为主线";
+const M=[["论文",allPapers.size,""],["核心问题",problemsRaw.length,""],["方法",concepts.length,""],["可做方向",gaps.length,"#BA7517"]];
+document.getElementById("metrics").innerHTML=M.map(m=>'<div class="metric"><div class="k">'+m[0]+'</div><div class="v"'+(m[2]?' style="color:'+m[2]+'"':'')+'>'+m[1]+'</div></div>').join("");
+const dc={}; Object.values(dates).forEach(d=>{ dc[d]=(dc[d]||0)+1; });
+const dk=Object.keys(dc).sort();
+if(dk.length){ const maxD=Math.max(...Object.values(dc)); document.getElementById("trendwrap").innerHTML='<div class="sec" style="margin-top:0">发表趋势</div><div class="trend">'+dk.map(k=>'<div class="col"><div class="ct">'+dc[k]+'</div><div class="bar" style="height:'+Math.round(6+dc[k]/maxD*46)+'px"></div><div class="lab">'+esc(k)+'</div></div>').join("")+'</div>'; }
+else{ document.getElementById("trendwrap").innerHTML='<p class="sub">发表趋势:暂无日期数据(Notion 论文行需有发表日期/年份属性;重跑 map build 后显示)。</p>'; }
+function methodChips(ms){ return ms.length?ms.map(c=>'<span class="chip m" title="'+esc(c.description||"")+'">'+esc(c.name)+'</span>').join(""):'<span class="sub">—</span>'; }
+function gapChips(gs){ return gs.length?gs.map(g=>'<span class="chip g" title="'+esc(g.rationale||"")+'">'+esc(g.name)+'</span>').join(""):'<span class="sub">—</span>'; }
+function paperList(ps){ return [...ps].sort().map(p=>'<div class="paper">· '+esc(p)+'</div>').join(""); }
+document.getElementById("clusters").innerHTML=problems.map(p=>
+  '<div class="card"><div class="phead"><span class="pname">'+esc(p.name)+'</span><span class="pbadge">'+p.papers.size+' 篇</span><div class="bar2"><i style="width:'+Math.round(p.papers.size/maxP*100)+'%"></i></div></div>'+
+  (p.detail?'<div class="pdetail">'+esc(p.detail)+'</div>':'')+
+  '<div class="row"><span class="lab">方法</span>'+methodChips(p.methods)+'</div>'+
+  '<div class="row"><span class="lab">可做</span>'+gapChips(p.gaps)+'</div>'+
+  '<details><summary>'+p.papers.size+' 篇相关论文</summary>'+paperList(p.papers)+'</details></div>'
+).join("")||'<p class="sub">没有问题节点。重跑 map build 后再看。</p>';
+let extra="";
+if(otherMethods.length) extra+='<div class="sec">未归入问题的方法 ('+otherMethods.length+')</div><div class="card">'+methodChips(otherMethods)+'</div>';
+if(otherGaps.length) extra+='<div class="sec">其他可做方向 ('+otherGaps.length+')</div><div class="card">'+gapChips(otherGaps)+'</div>';
+document.getElementById("extra").innerHTML=extra;
 </script>
 </body>
 </html>
