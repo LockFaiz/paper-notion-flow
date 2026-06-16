@@ -61,11 +61,17 @@ Extraction rules:
 - Names are short, CANONICAL noun phrases with NO paper-specific qualifiers — use the
   general term so it merges across papers. E.g. use the equivalent of "样本效率", not
   "扩散策略样本效率" or "机器人操作样本效率"; "数据增强", not "旋转数据增强".
+- problems: extract ONLY the 1-3 CORE problems the paper's MAIN CONTRIBUTION targets
+  (read the contribution / abstract). Name the central problem(s) the paper set out to
+  solve — NOT every sub-issue, side concern, or background difficulty. Fewer, sharper
+  problems are far better; prefer 1-2 when possible.
 - relations.source/target MUST be names that appear in this extraction's problems
-  or concepts.
+  or concepts. For EACH main method/concept, add a relation linking it (source) to the
+  core problem it addresses (target, type "addresses"), so methods can be grouped under
+  problems in the map.
 - A gap is something this paper reveals as unaddressed, untested, or missing —
   not a contribution. Use gaps sparingly; omit if none are evident.
-- Prefer 3-8 concepts, 1-4 problems. Do not pad. Omit anything you cannot ground
+- Prefer 4-7 concepts and 1-3 problems. Do not pad. Omit anything you cannot ground
   in the paper.
 - All free-text (description/rationale) in {language_name}.
 
@@ -283,6 +289,7 @@ class PaperContent:
     topics: list[str]
     last_edited: str
     abstract: str
+    period: str | None = None
 
 
 def _plain(items: list[dict]) -> str:
@@ -331,6 +338,39 @@ def _multi_values(page: dict, candidates: tuple[str, ...]) -> list[str]:
     return []
 
 
+def _paper_period(page: dict) -> str | None:
+    """Best-effort publication period as YYYY-MM, falling back to YYYY."""
+
+    def from_date(prop: dict) -> str | None:
+        start = (prop.get("date") or {}).get("start") or ""
+        if len(start) >= 7 and start[4] == "-":
+            return start[:7]
+        if len(start) >= 4 and start[:4].isdigit():
+            return start[:4]
+        return None
+
+    props = page.get("properties", {})
+    # 1) a publication-like date property (skip added/modified/updated bookkeeping dates)
+    for name, prop in props.items():
+        if prop.get("type") == "date" and not any(k in name.lower() for k in ("add", "modif", "updat")):
+            value = from_date(prop)
+            if value:
+                return value
+    # 2) a Year number property (year precision only)
+    for name, prop in props.items():
+        if prop.get("type") == "number" and "year" in name.lower():
+            number = prop.get("number")
+            if number:
+                return str(int(number))
+    # 3) any remaining date property
+    for prop in props.values():
+        if prop.get("type") == "date":
+            value = from_date(prop)
+            if value:
+                return value
+    return None
+
+
 def _blocks_to_text(blocks: list[dict]) -> str:
     parts: list[str] = []
     for block in blocks:
@@ -371,6 +411,7 @@ def _iter_papers(writer: NotionWriter, settings: Settings, collections: list[str
                 topics=topics,
                 last_edited=page.get("last_edited_time", ""),
                 abstract=_first_text_property(page, settings.notion_abstract_candidates),
+                period=_paper_period(page),
             )
         )
     return papers
@@ -552,6 +593,7 @@ def build_research_map(
     graph = _apply_merge(graph, nodemap, gapmap)
 
     graph_json = _graph_to_json(graph)
+    graph_json["paper_dates"] = {paper.title: paper.period for paper in papers if paper.title and paper.period}
     graph_path = data_dir / "research-map" / "graph.json"
     graph_path.write_text(json.dumps(graph_json, indent=2, ensure_ascii=False), encoding="utf-8")
 
