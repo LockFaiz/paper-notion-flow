@@ -612,6 +612,24 @@ def build_research_map(
     )
 
 
+def _rel_ids(page: dict, name: str) -> list[str]:
+    prop = page.get("properties", {}).get(name, {})
+    if prop.get("type") != "relation":
+        return []
+    return [item.get("id") for item in prop.get("relation", []) if item.get("id")]
+
+
+def _select_val(page: dict, name: str) -> str:
+    prop = page.get("properties", {}).get(name, {})
+    selected = prop.get("select") if prop.get("type") == "select" else None
+    return selected.get("name", "") if selected else ""
+
+
+def _rich_val(page: dict, name: str) -> str:
+    prop = page.get("properties", {}).get(name, {})
+    return _plain(prop.get("rich_text", [])) if prop.get("type") == "rich_text" else ""
+
+
 def _rich_text(value: str) -> dict:
     return {"rich_text": [{"text": {"content": value[:2000]}}]}
 
@@ -649,6 +667,20 @@ class _MapDatabase:
         if self.data_source_id:
             return self.client.data_sources.query(data_source_id=self.data_source_id, **kwargs)
         return self.client.databases.query(database_id=self.database_id, **kwargs)
+
+    def query_all(self) -> list[dict]:
+        results: list[dict] = []
+        cursor = None
+        while True:
+            kwargs = {"page_size": 100}
+            if cursor:
+                kwargs["start_cursor"] = cursor
+            response = self._query(**kwargs)
+            results.extend(response.get("results", []))
+            if not response.get("has_more"):
+                break
+            cursor = response.get("next_cursor")
+        return results
 
     def find_by_title(self, name: str) -> str | None:
         response = self._query(
@@ -785,6 +817,109 @@ def sync_research_map(settings: Settings, *, data_dir: Path, dry_run: bool = Fal
             f"GAPS:created {stats['gaps']['created']} updated {stats['gaps']['updated']}",
             f"RELATIONS:created {stats['relations']['created']} updated {stats['relations']['updated']}",
             f"PAPERS_INDEXED:{len(paper_map)}",
+        ]
+    )
+
+
+def export_from_notion(settings: Settings, *, data_dir: Path) -> str:
+    """Read the 4 research-map databases back into graph.json (Notion as source of truth).
+
+    The Python prototype of the Cloudflare /api/graph function: reflects manual
+    edits made in Notion (merged nodes, edited descriptions, adjusted relations).
+    """
+    if not settings.notion_token:
+        raise RuntimeError("NOTION_TOKEN is required.")
+    required = {
+        "Problems": settings.notion_problems_database_id,
+        "Concepts": settings.notion_concepts_database_id,
+        "Relations": settings.notion_relations_database_id,
+        "Gaps": settings.notion_gaps_database_id,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise RuntimeError(f"Missing database ids for: {', '.join(missing)}. Run `map init` / set them in .env.")
+
+    client = Client(auth=settings.notion_token)
+    papers = NotionWriter(settings)
+    pid_title: dict[str, str] = {}
+    paper_dates: dict[str, str] = {}
+    for page in papers._iter_database_pages():
+        title = _title_property(page)
+        if not title:
+            continue
+        pid_title[page["id"]] = title
+        period = _paper_period(page)
+        if period:
+            paper_dates[title] = period
+
+    def titles(ids: list[str]) -> list[str]:
+        return [pid_title[i] for i in ids if i in pid_title]
+
+    problems_db = _MapDatabase(client, required["Problems"])
+    concepts_db = _MapDatabase(client, required["Concepts"])
+    relations_db = _MapDatabase(client, required["Relations"])
+    gaps_db = _MapDatabase(client, required["Gaps"])
+
+    concepts = []
+    cid_name: dict[str, str] = {}
+    for page in concepts_db.query_all():
+        name = _title_property(page)
+        cid_name[page["id"]] = name
+        concepts.append(
+            {
+                "name": name,
+                "kind": _select_val(page, "Kind"),
+                "description": _rich_val(page, "Description"),
+                "papers": titles(_rel_ids(page, "Papers")),
+            }
+        )
+    problems = [
+        {
+            "name": _title_property(page),
+            "description": _rich_val(page, "Description"),
+            "papers": titles(_rel_ids(page, "Papers")),
+        }
+        for page in problems_db.query_all()
+    ]
+    relations = [
+        {
+            "source": _rich_val(page, "Source"),
+            "target": _rich_val(page, "Target"),
+            "type": _select_val(page, "Type"),
+            "rationale": _rich_val(page, "Rationale"),
+            "papers": [],
+        }
+        for page in relations_db.query_all()
+    ]
+    gaps = [
+        {
+            "name": _title_property(page),
+            "rationale": _rich_val(page, "Rationale"),
+            "related": [cid_name[i] for i in _rel_ids(page, "Related") if i in cid_name],
+            "papers": titles(_rel_ids(page, "Papers")),
+        }
+        for page in gaps_db.query_all()
+    ]
+
+    graph = {
+        "problems": problems,
+        "concepts": concepts,
+        "relations": relations,
+        "gaps": gaps,
+        "paper_dates": paper_dates,
+    }
+    out_path = data_dir / "research-map" / "graph.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(graph, indent=2, ensure_ascii=False), encoding="utf-8")
+    return "\n".join(
+        [
+            "MAP_EXPORT:OK",
+            f"PROBLEMS:{len(problems)}",
+            f"CONCEPTS:{len(concepts)}",
+            f"RELATIONS:{len(relations)}",
+            f"GAPS:{len(gaps)}",
+            f"PAPERS_DATED:{len(paper_dates)}",
+            f"GRAPH_JSON:{out_path}",
         ]
     )
 

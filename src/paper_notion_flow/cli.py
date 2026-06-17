@@ -8,6 +8,7 @@ from .config import Settings
 from .research_map import (
     build_research_map,
     check_map_setup,
+    export_from_notion,
     init_research_map,
     render_research_map,
     sync_research_map,
@@ -95,6 +96,9 @@ def build_parser() -> argparse.ArgumentParser:
     map_sync = map_sub.add_parser("sync", help="Write graph.json into the 4 research-map Notion databases.")
     map_sync.add_argument("--data-dir", default="data", help="Directory holding research-map/graph.json.")
     map_sync.add_argument("--dry-run", action="store_true", help="Preview counts without writing to Notion.")
+
+    map_export = map_sub.add_parser("export", help="Read the 4 Notion databases back into graph.json (Notion as source of truth).")
+    map_export.add_argument("--data-dir", default="data", help="Directory for research-map/graph.json.")
 
     map_render = map_sub.add_parser("render", help="Render landscape.html from the Notion databases.")
     map_render.add_argument("--data-dir", default="data", help="Directory for the rendered landscape file.")
@@ -194,6 +198,9 @@ def main() -> None:
                     prompt_override=prompt_override,
                 )
             )
+            return
+        if args.map_command == "export":
+            print(export_from_notion(settings, data_dir=Path(args.data_dir)))
             return
         if args.map_command == "sync":
             print(
