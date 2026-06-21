@@ -279,6 +279,32 @@ def _compose_generation_info(settings: Settings) -> str:
     return " · ".join(parts)
 
 
+def last_run_model_effort(settings: Settings) -> tuple[str, str]:
+    """The model and reasoning effort of the most recent generation (observed > configured)."""
+    args = list(settings.local_ai_args)
+    model = _LAST_RUN_MODEL or ""
+    if not model:
+        for flag in ("--model", "-m"):
+            if flag in args:
+                index = args.index(flag)
+                if index + 1 < len(args):
+                    model = args[index + 1]
+                    break
+    if not model and settings.ai_backend == "openai":
+        model = settings.openai_model
+    effort = _LAST_RUN_EFFORT or ""
+    if not effort:
+        for index, arg in enumerate(args):
+            if arg == "--effort" and index + 1 < len(args):
+                effort = args[index + 1]
+                break
+            match = re.search(r'model_reasoning_effort="?([A-Za-z]+)"?', arg)
+            if match:
+                effort = match.group(1)
+                break
+    return model or "default", effort or "default"
+
+
 def _run_local_command(settings: Settings, prompt: str) -> str:
     if settings.local_ai_template:
         with tempfile.TemporaryDirectory(prefix="paper-notion-flow-") as tmpdir:

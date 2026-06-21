@@ -677,6 +677,16 @@ export class PaperFlowPlugin {
     }
   }
 
+  /** The saved preset name matching the active prompt, or "" for a custom prompt. */
+  static currentPresetName(): string {
+    const text = String(getPref("promptOverride") || "").trim();
+    if (!text) {
+      return "";
+    }
+    const preset = this.getPromptPresets().find((item) => item.text === text);
+    return preset ? preset.name : "";
+  }
+
   static copyStatusToClipboard() {
     this.copyTextToClipboard(this.getStatusMessage());
     this.setStatusMessage(
@@ -2055,6 +2065,9 @@ export class PaperFlowPlugin {
       "--force",
       values.skipAi ? "--skip-ai" : "",
       `--prompt-override-file ${this.quoteForBashSingle(values.promptFile)}`,
+      this.currentPresetName()
+        ? `--preset-name ${this.quoteForBashSingle(this.currentPresetName())}`
+        : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -2276,6 +2289,9 @@ export class PaperFlowPlugin {
       "--force",
       placeholders.skipAi ? "--skip-ai" : "",
       `--prompt-override-file ${this.quoteForCmdArg(placeholders.promptFile)}`,
+      this.currentPresetName()
+        ? `--preset-name ${this.quoteForCmdArg(this.currentPresetName())}`
+        : "",
     ]
       .filter(Boolean)
       .join(" ");

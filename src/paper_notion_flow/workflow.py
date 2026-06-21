@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from .ai import apply_inferred_metadata, build_reading_guide
+from .ai import apply_inferred_metadata, build_reading_guide, last_run_model_effort
 from .config import Settings
 from .extract import download_pdf, prepare_pdf_for_cli
 from .models import DocumentRecord
@@ -57,6 +57,7 @@ def process_zotero_item(
     skip_ai: bool,
     force: bool,
     prompt_override: str | None,
+    preset_name: str | None = None,
 ) -> str:
     library = ZoteroLibrary(settings.zotero_data_dir)
     record = library.get_document_by_key(item_key)
@@ -73,6 +74,7 @@ def process_zotero_item(
         record=record,
         skip_ai=skip_ai,
         prompt_override=prompt_override,
+        preset_name=preset_name,
     )
     state.mark_processed(record.stable_id, record.date_modified)
     return result
@@ -172,6 +174,7 @@ def _process_record(
     record: DocumentRecord,
     skip_ai: bool,
     prompt_override: str | None,
+    preset_name: str | None = None,
 ) -> str:
     source_text, source_pdf_path = _prepare_record_source(data_dir, record)
 
@@ -186,8 +189,21 @@ def _process_record(
         )
         apply_inferred_metadata(record, guide)
 
+    variant_label = None
+    variant_date = None
+    if guide is not None:
+        model, effort = last_run_model_effort(settings)
+        variant_label = " · ".join(part for part in (preset_name, model, effort) if part) or None
+        variant_date = datetime.now().strftime("%m-%d")
+
     writer = NotionWriter(settings)
-    result = writer.sync_document(record=record, guide=guide, extracted_markdown=source_text)
+    result = writer.sync_document(
+        record=record,
+        guide=guide,
+        extracted_markdown=source_text,
+        variant_label=variant_label,
+        variant_date=variant_date,
+    )
 
     source_label = f"pdf {source_pdf_path}" if source_pdf_path else "metadata fallback"
     lines = [

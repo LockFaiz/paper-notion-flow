@@ -183,17 +183,30 @@ class NotionWriter:
         record: DocumentRecord,
         guide: ReadingGuide | None,
         extracted_markdown: str,
+        variant_label: str | None = None,
+        variant_date: str | None = None,
     ) -> NotionSyncResult:
         paper_page_id = self._find_paper_page(record) or self._create_paper_page(record)
         self._update_paper_page(paper_page_id, record, guide_present=guide is not None)
         guide_page_id = None
         if guide is not None:
-            guide_page_id = self._reset_child_page(
-                paper_page_id,
-                self._text("guide_title"),
-                legacy_titles=self._all_text_values("guide_title", extra=("Reading Guide",)),
-            )
-            self._append_page_content(guide_page_id, self._build_guide_blocks(record, guide))
+            guide_title = self._text("guide_title")
+            if variant_label:
+                # Version key (prompt/model/effort) drives overwrite; the date is
+                # appended to the title only. Same version → overwritten (date
+                # refreshed); a new prompt/model/effort combo → a new subpage.
+                version_key = f"{guide_title} · {variant_label}"
+                title = f"{version_key} · {variant_date}" if variant_date else version_key
+                self._delete_child_pages_by_prefix(paper_page_id, version_key)
+                guide_page_id = self._create_child_page(paper_page_id, title)
+            else:
+                title = guide_title
+                guide_page_id = self._reset_child_page(
+                    paper_page_id,
+                    guide_title,
+                    legacy_titles=self._all_text_values("guide_title", extra=("Reading Guide",)),
+                )
+            self._append_page_content(guide_page_id, self._build_guide_blocks(record, guide, title=title))
         if self.settings.sync_notes and record.notes:
             notes_page_id = self._reset_child_page(paper_page_id, "Notes", legacy_titles=("Zotero Notes",))
             self._append_page_content(notes_page_id, self._build_note_blocks(record))
@@ -439,9 +452,11 @@ class NotionWriter:
         self,
         record: DocumentRecord,
         guide: ReadingGuide | None,
+        *,
+        title: str | None = None,
     ) -> list[dict]:
         blocks: list[dict | list[dict]] = [
-            self._heading(self._text("guide_title")),
+            self._heading(title or self._text("guide_title")),
         ]
 
         if record.collections:
@@ -678,6 +693,29 @@ class NotionWriter:
             if block.get("type") != "child_page":
                 continue
             if block["child_page"]["title"] not in titles_to_delete:
+                continue
+            if block.get("archived") or block.get("in_trash"):
+                continue
+            try:
+                self.client.blocks.delete(block_id=block["id"])
+            except APIResponseError as exc:
+                if "archived" in str(exc).lower():
+                    continue
+                raise
+
+    def _create_child_page(self, parent_page_id: str, title: str) -> str:
+        page = self.client.pages.create(
+            parent={"page_id": parent_page_id},
+            properties={"title": [{"type": "text", "text": {"content": title}}]},
+        )
+        return page["id"]
+
+    def _delete_child_pages_by_prefix(self, parent_page_id: str, prefix: str) -> None:
+        for block in self._list_all_child_blocks(parent_page_id):
+            if block.get("type") != "child_page":
+                continue
+            child_title = block["child_page"].get("title", "")
+            if child_title != prefix and not child_title.startswith(f"{prefix} · "):
                 continue
             if block.get("archived") or block.get("in_trash"):
                 continue

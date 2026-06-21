@@ -58,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     item_parser.add_argument("--data-dir", default="data", help="Directory for markdown and state.")
     item_parser.add_argument("--skip-ai", action="store_true", help="Skip AI reading guide generation.")
     item_parser.add_argument("--force", action="store_true", help="Reprocess even if already handled.")
+    item_parser.add_argument("--preset-name", help="Prompt preset name, used to label the guide subpage version.")
     _add_prompt_override_args(item_parser)
 
     prune_parser = subparsers.add_parser(
@@ -122,6 +123,7 @@ def main() -> None:
             skip_ai=args.skip_ai,
             force=args.force,
             prompt_override=prompt_override,
+            preset_name=args.preset_name,
         )
         print(result)
         return
