@@ -460,6 +460,37 @@ function bindPromptPresetEvents(window: Window) {
     PaperFlowPlugin.setStatusMessage(`Deleted prompt preset: ${name}`);
     void PaperFlowPlugin.pushConfigToZotero();
   });
+
+  onClick(window, "rename-preset", () => {
+    const presets = getPresetNode(window);
+    const name = presets?.value;
+    if (!name) {
+      PaperFlowPlugin.setStatusMessage("Select a saved prompt to rename.");
+      return;
+    }
+    const input = { value: name };
+    const confirmed = Services.prompt.prompt(
+      window as unknown as mozIDOMWindowProxy,
+      getString("preset-name-title"),
+      getString("preset-name-msg"),
+      input,
+      "",
+      { value: false },
+    );
+    if (!confirmed) {
+      return;
+    }
+    const finalName = PaperFlowPlugin.renamePromptPreset(name, input.value);
+    if (!finalName) {
+      return;
+    }
+    refreshPromptPresets(window);
+    if (presets) {
+      presets.value = finalName;
+    }
+    PaperFlowPlugin.setStatusMessage(`Renamed prompt preset to: ${finalName}`);
+    void PaperFlowPlugin.pushConfigToZotero();
+  });
 }
 
 function refreshPromptPresets(window: Window) {

@@ -57,6 +57,7 @@ export type FluentMessageId =
   | 'pref-prompt-presets-label'
   | 'pref-prune-deleted'
   | 'pref-refresh-models'
+  | 'pref-rename-preset'
   | 'pref-reveal'
   | 'pref-run-selected'
   | 'pref-runtime-auto'

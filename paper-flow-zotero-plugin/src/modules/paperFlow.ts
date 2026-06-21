@@ -641,6 +641,30 @@ export class PaperFlowPlugin {
     }
   }
 
+  /** Renames a saved preset. Returns the final (deduped) name, or "". */
+  static renamePromptPreset(oldName: string, newName: string): string {
+    const target = String(newName || "").trim();
+    if (!target) {
+      return "";
+    }
+    const list = this.getPromptPresets();
+    const preset = list.find((item) => item.name === oldName);
+    if (!preset) {
+      return "";
+    }
+    if (target !== oldName) {
+      preset.name = this.uniquePresetName(
+        target,
+        list.filter((item) => item !== preset),
+      );
+    }
+    setPref("promptPresets", JSON.stringify(list));
+    if (this.getDefaultPromptName() === oldName) {
+      setPref("defaultPromptName", preset.name);
+    }
+    return preset.name;
+  }
+
   /** Loads a preset's text as the active prompt. Returns the text, or null. */
   static applyPromptPreset(name: string): string | null {
     const preset = this.getPromptPresets().find((item) => item.name === name);

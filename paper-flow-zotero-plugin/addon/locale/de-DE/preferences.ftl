@@ -47,6 +47,7 @@ pref-prompt-presets-help = Bis zu 10 gespeicherte Prompts. ★ ist der Standard 
 pref-save-preset = Aktuellen als Vorlage speichern
 pref-set-default-preset = Als Standard festlegen
 pref-delete-preset = Auswahl löschen
+pref-rename-preset = Auswahl umbenennen
 pref-fill-default-prompt = Standard-Prompt einfügen
 pref-clear-custom-prompt = Benutzerdefinierten Prompt löschen
 pref-actions-note = Teste die aktuelle Einrichtung mit diesen Schaltflächen, bevor du die volle Automatisierung aktivierst.

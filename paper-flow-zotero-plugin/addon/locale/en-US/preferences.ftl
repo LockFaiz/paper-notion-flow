@@ -47,6 +47,7 @@ pref-prompt-presets-help = Up to 10 saved prompts. ★ is the default and is re-
 pref-save-preset = Save current as preset
 pref-set-default-preset = Set as default
 pref-delete-preset = Delete selected
+pref-rename-preset = Rename selected
 pref-fill-default-prompt = Fill default prompt
 pref-clear-custom-prompt = Clear custom prompt
 pref-actions-note = Use these buttons to test the current setup before turning on full automation.

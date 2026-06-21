@@ -47,6 +47,7 @@ pref-prompt-presets-help = 最大 10 件保存。★ が既定で、起動ごと
 pref-save-preset = 現在の内容をプリセット保存
 pref-set-default-preset = 既定に設定
 pref-delete-preset = 選択を削除
+pref-rename-preset = 選択の名前を変更
 pref-fill-default-prompt = 既定 prompt を入力
 pref-clear-custom-prompt = カスタム prompt を消去
 pref-actions-note = 完全自動化を有効にする前に、これらのボタンで現在の設定をテストできます。
