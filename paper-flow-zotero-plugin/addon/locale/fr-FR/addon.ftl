@@ -15,3 +15,5 @@ conceal = Masquer
 preset-default-word = Préréglage
 preset-name-title = Nommer le préréglage
 preset-name-msg = Saisissez un nom court pour ce préréglage de prompt :
+overwrite-title = Versions du guide pleines
+overwrite-msg = Vous avez déjà { $max } versions. Choisissez celle à écraser :

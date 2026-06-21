@@ -15,3 +15,5 @@ conceal = 非表示
 preset-default-word = プリセット
 preset-name-title = プリセットに名前を付ける
 preset-name-msg = この prompt プリセットの短い名前を入力:
+overwrite-title = 読解ガイドのバージョンが上限です
+overwrite-msg = すでに { $max } 件あります。上書きするものを選んでください:

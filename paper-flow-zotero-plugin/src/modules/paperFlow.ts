@@ -711,6 +711,108 @@ export class PaperFlowPlugin {
     return preset ? preset.name : "";
   }
 
+  static readonly MAX_GUIDE_VERSIONS = 5;
+
+  /** Version key for the active settings: preset · model · effort (default fallback). */
+  static currentVariantKey(): string {
+    const preset = this.currentPresetName();
+    const model = String(getPref("aiModel") || "").trim() || "default";
+    const effort = String(getPref("aiEffort") || "").trim() || "default";
+    return [preset, model, effort].filter(Boolean).join(" · ");
+  }
+
+  /** Lists existing guide version titles for an item via the CLI. */
+  private static async listGuideVariants(itemKey: string): Promise<string[]> {
+    const command = await this.buildManagedListVariantsCommand(itemKey);
+    if (!command) {
+      return [];
+    }
+    const output = await this.executeShellCommandWithOutput(command);
+    return output
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("VARIANT:"))
+      .map((line) => line.slice("VARIANT:".length).trim())
+      .filter(Boolean);
+  }
+
+  private static async buildManagedListVariantsCommand(
+    itemKey: string,
+  ): Promise<string> {
+    const runtime = this.getRuntimeMode();
+    const workspace = this.resolveWorkspacePath(runtime);
+    if (!workspace) {
+      return "";
+    }
+    if (runtime === "native-windows") {
+      return [
+        this.buildWindowsBootstrap(),
+        "&&",
+        `cd /d ${this.quoteForCmdArg(workspace)}`,
+        "&&",
+        ...this.buildNotionEnvCmd().flatMap((part) => [part, "&&"]),
+        "uv run paper-notion-flow list-guide-variants",
+        `--key ${this.quoteForCmdArg(itemKey)}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+    const inner = [
+      `cd ${this.quoteForBashSingle(workspace)}`,
+      "&&",
+      ...this.buildNotionEnvBash(),
+      "uv run paper-notion-flow list-guide-variants",
+      `--key ${this.quoteForBashSingle(itemKey)}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return this.wrapRuntimeShellCommand(inner, runtime);
+  }
+
+  /**
+   * Decides the overwrite target before generating a guide: the active version
+   * overwrites itself; at the cap with a new version, asks which existing version
+   * to overwrite. proceed=false means the user cancelled.
+   */
+  private static async resolveGuideVersion(
+    item: Zotero.Item,
+  ): Promise<{ proceed: boolean; overwrite: string }> {
+    const variantKey = this.currentVariantKey();
+    let variants: string[] = [];
+    try {
+      variants = await this.listGuideVariants(item.key);
+    } catch (_error) {
+      return { proceed: true, overwrite: "" };
+    }
+    const exists = variants.some(
+      (title) =>
+        title.includes(` · ${variantKey} · `) ||
+        title.endsWith(` · ${variantKey}`),
+    );
+    if (exists || variants.length < this.MAX_GUIDE_VERSIONS) {
+      return { proceed: true, overwrite: "" };
+    }
+    const chosen = this.pickVariantToOverwrite(variants);
+    if (chosen === null) {
+      return { proceed: false, overwrite: "" };
+    }
+    return { proceed: true, overwrite: chosen };
+  }
+
+  /** Zotero list-selection dialog for which existing version to overwrite. */
+  private static pickVariantToOverwrite(variants: string[]): string | null {
+    const selected = { value: 0 };
+    const win = Zotero.getMainWindow();
+    const ok = Services.prompt.select(
+      win as unknown as mozIDOMWindowProxy,
+      getString("overwrite-title"),
+      getString("overwrite-msg", { args: { max: this.MAX_GUIDE_VERSIONS } }),
+      variants,
+      selected,
+    );
+    return ok ? variants[selected.value] || null : null;
+  }
+
   static copyStatusToClipboard() {
     this.copyTextToClipboard(this.getStatusMessage());
     this.setStatusMessage(
@@ -984,7 +1086,23 @@ export class PaperFlowPlugin {
     syncMode: SyncMode,
   ) {
     const promptFiles = await this.createPromptFiles();
-    const command = await this.buildProcessCommand(item, promptFiles, syncMode);
+    let overwriteVersion = "";
+    if (syncMode === "with-ai") {
+      const decision = await this.resolveGuideVersion(item);
+      if (!decision.proceed) {
+        this.setStatusMessage(
+          `Skipped ${this.getItemLabel(item)} — version overwrite cancelled.`,
+        );
+        return;
+      }
+      overwriteVersion = decision.overwrite;
+    }
+    const command = await this.buildProcessCommand(
+      item,
+      promptFiles,
+      syncMode,
+      overwriteVersion,
+    );
     if (!command) {
       this.setStatusMessage(
         "Paper Flow command is empty. Configure managed runtime settings or provide a custom process command template.",
@@ -1296,6 +1414,7 @@ export class PaperFlowPlugin {
       wslPath: string;
     },
     syncMode: SyncMode,
+    overwriteVersion = "",
   ) {
     if (this.useCustomCommands()) {
       const template = String(getPref("commandTemplate") || "").trim();
@@ -1314,6 +1433,7 @@ export class PaperFlowPlugin {
       promptFile: promptFiles.runtimePath,
       promptFileWindows: promptFiles.windowsPath,
       skipAi: syncMode === "metadata-only",
+      overwriteVersion,
     });
   }
 
@@ -2062,6 +2182,7 @@ export class PaperFlowPlugin {
     promptFile: string;
     promptFileWindows: string;
     skipAi: boolean;
+    overwriteVersion?: string;
   }): { runtime: RuntimeMode; inner?: string; full?: string } | null {
     const runtime = this.getRuntimeMode();
     const workspace = this.resolveWorkspacePath(runtime);
@@ -2089,8 +2210,11 @@ export class PaperFlowPlugin {
       "--force",
       values.skipAi ? "--skip-ai" : "",
       `--prompt-override-file ${this.quoteForBashSingle(values.promptFile)}`,
-      this.currentPresetName()
-        ? `--preset-name ${this.quoteForBashSingle(this.currentPresetName())}`
+      this.currentVariantKey()
+        ? `--variant-key ${this.quoteForBashSingle(this.currentVariantKey())}`
+        : "",
+      values.overwriteVersion
+        ? `--overwrite-version ${this.quoteForBashSingle(values.overwriteVersion)}`
         : "",
     ]
       .filter(Boolean)
@@ -2105,6 +2229,7 @@ export class PaperFlowPlugin {
     promptFile: string;
     promptFileWindows: string;
     skipAi: boolean;
+    overwriteVersion?: string;
   }) {
     const composed = this.composeManagedProcessInner(values);
     if (!composed) {
@@ -2288,6 +2413,7 @@ export class PaperFlowPlugin {
       promptFile: string;
       promptFileWindows: string;
       skipAi: boolean;
+      overwriteVersion?: string;
     },
   ) {
     return [
@@ -2313,8 +2439,11 @@ export class PaperFlowPlugin {
       "--force",
       placeholders.skipAi ? "--skip-ai" : "",
       `--prompt-override-file ${this.quoteForCmdArg(placeholders.promptFile)}`,
-      this.currentPresetName()
-        ? `--preset-name ${this.quoteForCmdArg(this.currentPresetName())}`
+      this.currentVariantKey()
+        ? `--variant-key ${this.quoteForCmdArg(this.currentVariantKey())}`
+        : "",
+      placeholders.overwriteVersion
+        ? `--overwrite-version ${this.quoteForCmdArg(placeholders.overwriteVersion)}`
         : "",
     ]
       .filter(Boolean)

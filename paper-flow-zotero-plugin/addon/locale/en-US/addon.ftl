@@ -15,3 +15,5 @@ conceal = Hide
 preset-default-word = Preset
 preset-name-title = Name preset
 preset-name-msg = Enter a short name for this prompt preset:
+overwrite-title = Reading-guide versions are full
+overwrite-msg = You already have { $max } versions. Pick one to overwrite:

@@ -18,6 +18,8 @@ export type FluentMessageId =
   | 'item-section-example2-head-text'
   | 'item-section-example2-sidenav-tooltip'
   | 'menuitem-settings'
+  | 'overwrite-msg'
+  | 'overwrite-title'
   | 'pick-workspace'
   | 'pref-actions-note'
   | 'pref-ai-args'

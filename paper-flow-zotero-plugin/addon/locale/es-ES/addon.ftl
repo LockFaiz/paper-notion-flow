@@ -15,3 +15,5 @@ conceal = Ocultar
 preset-default-word = Preset
 preset-name-title = Nombrar preset
 preset-name-msg = Escribe un nombre corto para este preset de prompt:
+overwrite-title = Versiones de la guía llenas
+overwrite-msg = Ya tienes { $max } versiones. Elige cuál sobrescribir:

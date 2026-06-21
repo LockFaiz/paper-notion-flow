@@ -185,6 +185,7 @@ class NotionWriter:
         extracted_markdown: str,
         variant_label: str | None = None,
         variant_date: str | None = None,
+        overwrite_version: str | None = None,
     ) -> NotionSyncResult:
         paper_page_id = self._find_paper_page(record) or self._create_paper_page(record)
         self._update_paper_page(paper_page_id, record, guide_present=guide is not None)
@@ -198,6 +199,10 @@ class NotionWriter:
                 version_key = f"{guide_title} · {variant_label}"
                 title = f"{version_key} · {variant_date}" if variant_date else version_key
                 self._delete_child_pages_by_prefix(paper_page_id, version_key)
+                # When the user picked an older version to overwrite (cap reached),
+                # delete that specific subpage too to free its slot.
+                if overwrite_version and overwrite_version != title:
+                    self._delete_child_pages(paper_page_id, (overwrite_version,))
                 guide_page_id = self._create_child_page(paper_page_id, title)
             else:
                 title = guide_title
@@ -217,6 +222,21 @@ class NotionWriter:
             guide_page_id=guide_page_id,
             guide_page_url=_notion_page_url(guide_page_id) if guide_page_id else None,
         )
+
+    def list_guide_variants(self, record: DocumentRecord) -> list[str]:
+        """Existing reading-guide subpage titles (versions) for this paper."""
+        paper_page_id = self._find_paper_page(record)
+        if not paper_page_id:
+            return []
+        guide_title = self._text("guide_title")
+        variants: list[str] = []
+        for block in self._list_all_child_blocks(paper_page_id):
+            if block.get("type") != "child_page":
+                continue
+            title = block["child_page"].get("title", "")
+            if title == guide_title or title.startswith(f"{guide_title} · "):
+                variants.append(title)
+        return variants
 
     def check_database(self) -> str:
         required = [("title", self.title_property)]

@@ -5,7 +5,14 @@ import time
 from pathlib import Path
 
 from .config import Settings
-from .workflow import check_notion, import_pdf_document, process_zotero_item, prune_zotero_deletions, sync_zotero
+from .workflow import (
+    check_notion,
+    import_pdf_document,
+    list_guide_variants,
+    process_zotero_item,
+    prune_zotero_deletions,
+    sync_zotero,
+)
 
 
 def _add_prompt_override_args(parser: argparse.ArgumentParser) -> None:
@@ -59,6 +66,8 @@ def build_parser() -> argparse.ArgumentParser:
     item_parser.add_argument("--skip-ai", action="store_true", help="Skip AI reading guide generation.")
     item_parser.add_argument("--force", action="store_true", help="Reprocess even if already handled.")
     item_parser.add_argument("--preset-name", help="Prompt preset name, used to label the guide subpage version.")
+    item_parser.add_argument("--variant-key", help="Full version key (preset·model·effort); overrides --preset-name for the subpage title.")
+    item_parser.add_argument("--overwrite-version", help="Existing version title to delete first (frees a slot when at the version cap).")
     _add_prompt_override_args(item_parser)
 
     prune_parser = subparsers.add_parser(
@@ -70,6 +79,12 @@ def build_parser() -> argparse.ArgumentParser:
     prune_parser.add_argument("--dry-run", action="store_true", help="Preview deleted-item cleanup without archiving pages.")
 
     subparsers.add_parser("check-notion", help="Validate Notion token, database access, and useful Paper Flow properties.")
+
+    variants_parser = subparsers.add_parser(
+        "list-guide-variants",
+        help="List existing reading-guide versions for a Zotero item.",
+    )
+    variants_parser.add_argument("--key", required=True, help="Zotero item key.")
 
     watch_parser = subparsers.add_parser("watch-zotero", help="Poll Zotero and process new or changed items.")
     watch_parser.add_argument("--since-hours", type=float, default=6.0, help="Initial lookback window.")
@@ -124,6 +139,8 @@ def main() -> None:
             force=args.force,
             prompt_override=prompt_override,
             preset_name=args.preset_name,
+            variant_key=args.variant_key,
+            overwrite_version=args.overwrite_version,
         )
         print(result)
         return
@@ -140,6 +157,10 @@ def main() -> None:
 
     if args.command == "check-notion":
         print(check_notion(settings))
+        return
+
+    if args.command == "list-guide-variants":
+        print(list_guide_variants(settings=settings, item_key=args.key))
         return
 
     if args.command == "watch-zotero":

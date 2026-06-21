@@ -15,3 +15,5 @@ conceal = Verbergen
 preset-default-word = Vorlage
 preset-name-title = Vorlage benennen
 preset-name-msg = Gib einen kurzen Namen für diese Prompt-Vorlage ein:
+overwrite-title = Leitfaden-Versionen voll
+overwrite-msg = Du hast bereits { $max } Versionen. Wähle eine zum Überschreiben:

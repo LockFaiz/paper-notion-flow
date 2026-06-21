@@ -15,3 +15,5 @@ conceal = 隐藏
 preset-default-word = 预设
 preset-name-title = 命名预设
 preset-name-msg = 给这个 prompt 预设起个简短名字:
+overwrite-title = 解读版本已满
+overwrite-msg = 已有 { $max } 个版本,选一个覆盖:

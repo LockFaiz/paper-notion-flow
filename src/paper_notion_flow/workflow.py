@@ -58,6 +58,8 @@ def process_zotero_item(
     force: bool,
     prompt_override: str | None,
     preset_name: str | None = None,
+    variant_key: str | None = None,
+    overwrite_version: str | None = None,
 ) -> str:
     library = ZoteroLibrary(settings.zotero_data_dir)
     record = library.get_document_by_key(item_key)
@@ -75,6 +77,8 @@ def process_zotero_item(
         skip_ai=skip_ai,
         prompt_override=prompt_override,
         preset_name=preset_name,
+        variant_key=variant_key,
+        overwrite_version=overwrite_version,
     )
     state.mark_processed(record.stable_id, record.date_modified)
     return result
@@ -167,6 +171,18 @@ def check_notion(settings: Settings) -> str:
     return writer.check_database()
 
 
+def list_guide_variants(*, settings: Settings, item_key: str) -> str:
+    library = ZoteroLibrary(settings.zotero_data_dir)
+    record = library.get_document_by_key(item_key)
+    if not record:
+        raise RuntimeError(f"Could not find Zotero item: {item_key}")
+    writer = NotionWriter(settings)
+    variants = writer.list_guide_variants(record)
+    lines = [f"VARIANT_COUNT:{len(variants)}"]
+    lines.extend(f"VARIANT:{title}" for title in variants)
+    return "\n".join(lines)
+
+
 def _process_record(
     *,
     settings: Settings,
@@ -175,6 +191,8 @@ def _process_record(
     skip_ai: bool,
     prompt_override: str | None,
     preset_name: str | None = None,
+    variant_key: str | None = None,
+    overwrite_version: str | None = None,
 ) -> str:
     source_text, source_pdf_path = _prepare_record_source(data_dir, record)
 
@@ -192,9 +210,13 @@ def _process_record(
     variant_label = None
     variant_date = None
     if guide is not None:
-        model, effort = last_run_model_effort(settings)
-        variant_label = " · ".join(part for part in (preset_name, model, effort) if part) or None
-        variant_date = datetime.now().strftime("%m-%d")
+        if variant_key:
+            variant_label = variant_key
+        else:
+            model, effort = last_run_model_effort(settings)
+            variant_label = " · ".join(part for part in (preset_name, model, effort) if part) or None
+        if variant_label:
+            variant_date = datetime.now().strftime("%m-%d")
 
     writer = NotionWriter(settings)
     result = writer.sync_document(
@@ -203,6 +225,7 @@ def _process_record(
         extracted_markdown=source_text,
         variant_label=variant_label,
         variant_date=variant_date,
+        overwrite_version=overwrite_version,
     )
 
     source_label = f"pdf {source_pdf_path}" if source_pdf_path else "metadata fallback"
