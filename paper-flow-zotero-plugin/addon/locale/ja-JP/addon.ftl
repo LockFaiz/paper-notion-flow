@@ -12,3 +12,6 @@ config-context = · コンテキスト { $context }
 pick-workspace = paper-notion-flow ワークスペースフォルダーを選択
 reveal = 表示
 conceal = 非表示
+preset-default-word = プリセット
+preset-name-title = プリセットに名前を付ける
+preset-name-msg = この prompt プリセットの短い名前を入力:

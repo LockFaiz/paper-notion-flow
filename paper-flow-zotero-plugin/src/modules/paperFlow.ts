@@ -589,8 +589,8 @@ export class PaperFlowPlugin {
     return String(getPref("defaultPromptName") || "");
   }
 
-  /** Saves the given text as a new preset (deduped by content). Returns the name. */
-  static savePromptPreset(text: string): string {
+  /** Saves the given text as a preset under `name` (deduped by content). Returns the final name. */
+  static savePromptPreset(text: string, name?: string): string {
     const trimmed = String(text || "").trim();
     if (!trimmed) {
       return "";
@@ -600,21 +600,26 @@ export class PaperFlowPlugin {
     if (existing) {
       return existing.name;
     }
-    const name = this.makePresetName(trimmed, list);
-    list.unshift({ name, text: trimmed });
+    const desired =
+      String(name || "").trim() || `Preset ${this.nextPresetIndex()}`;
+    const finalName = this.uniquePresetName(desired, list);
+    list.unshift({ name: finalName, text: trimmed });
     setPref(
       "promptPresets",
       JSON.stringify(list.slice(0, this.MAX_PROMPT_PRESETS)),
     );
-    return name;
+    return finalName;
   }
 
-  private static makePresetName(
-    text: string,
+  /** Next default preset number (1-based), for pre-filling the name dialog. */
+  static nextPresetIndex(): number {
+    return this.getPromptPresets().length + 1;
+  }
+
+  private static uniquePresetName(
+    base: string,
     list: Array<{ name: string }>,
   ): string {
-    const firstLine = text.split(/\r?\n/)[0].trim();
-    const base = (firstLine.slice(0, 30) || "Prompt").trim();
     const names = new Set(list.map((preset) => preset.name));
     if (!names.has(base)) {
       return base;

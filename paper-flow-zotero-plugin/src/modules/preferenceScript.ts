@@ -393,11 +393,29 @@ function bindPromptPresetEvents(window: Window) {
     const node = window.document.querySelector(
       `#zotero-prefpane-${config.addonRef}-prompt-override`,
     ) as HTMLTextAreaElement | null;
-    const name = PaperFlowPlugin.savePromptPreset(node?.value || "");
-    if (!name) {
+    const text = node?.value || "";
+    if (!text.trim()) {
       PaperFlowPlugin.setStatusMessage(
         "The prompt editor is empty, so there is nothing to save.",
       );
+      return;
+    }
+    const input = {
+      value: `${getString("preset-default-word")} ${PaperFlowPlugin.nextPresetIndex()}`,
+    };
+    const confirmed = Services.prompt.prompt(
+      window as unknown as mozIDOMWindowProxy,
+      getString("preset-name-title"),
+      getString("preset-name-msg"),
+      input,
+      "",
+      { value: false },
+    );
+    if (!confirmed) {
+      return;
+    }
+    const name = PaperFlowPlugin.savePromptPreset(text, input.value);
+    if (!name) {
       return;
     }
     refreshPromptPresets(window);

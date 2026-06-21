@@ -12,3 +12,6 @@ config-context = · contexte { $context }
 pick-workspace = Sélectionnez le dossier de l'espace de travail paper-notion-flow
 reveal = Afficher
 conceal = Masquer
+preset-default-word = Préréglage
+preset-name-title = Nommer le préréglage
+preset-name-msg = Saisissez un nom court pour ce préréglage de prompt :

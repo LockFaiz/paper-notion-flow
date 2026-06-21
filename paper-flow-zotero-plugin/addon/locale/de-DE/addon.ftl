@@ -12,3 +12,6 @@ config-context = · Kontext { $context }
 pick-workspace = Wähle den paper-notion-flow Workspace-Ordner
 reveal = Anzeigen
 conceal = Verbergen
+preset-default-word = Vorlage
+preset-name-title = Vorlage benennen
+preset-name-msg = Gib einen kurzen Namen für diese Prompt-Vorlage ein:

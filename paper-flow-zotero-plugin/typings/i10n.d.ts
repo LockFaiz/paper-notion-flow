@@ -82,6 +82,9 @@ export type FluentMessageId =
   | 'pref-workspace-path'
   | 'pref-wsl-distro'
   | 'prefs-title'
+  | 'preset-default-word'
+  | 'preset-name-msg'
+  | 'preset-name-title'
   | 'reveal'
   | 'startup-begin'
   | 'startup-finish';
