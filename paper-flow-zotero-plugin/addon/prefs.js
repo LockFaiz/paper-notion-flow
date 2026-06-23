@@ -31,3 +31,4 @@ pref("deleteCommandTemplate", "");
 pref("promptOverride", "");
 pref("promptPresets", "[]");
 pref("defaultPromptName", "");
+pref("activePresetName", "");

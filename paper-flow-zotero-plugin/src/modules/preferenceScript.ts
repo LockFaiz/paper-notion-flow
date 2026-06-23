@@ -222,6 +222,9 @@ function bindPrefEvents(window: Window) {
   onClick(window, "fill-default-prompt", () => {
     const defaultName = PaperFlowPlugin.getDefaultPromptName();
     setPromptOverride(window, PaperFlowPlugin.getActiveDefaultPrompt());
+    // Filling the default preset reactivates it; the built-in template (no
+    // default set) leaves no preset attached.
+    PaperFlowPlugin.setActivePresetName(defaultName);
     PaperFlowPlugin.setStatusMessage(
       defaultName
         ? `Filled your default preset "${defaultName}" into the editor.`
@@ -231,6 +234,7 @@ function bindPrefEvents(window: Window) {
 
   onClick(window, "clear-custom-prompt", () => {
     setPromptOverride(window, "");
+    PaperFlowPlugin.setActivePresetName("");
     PaperFlowPlugin.setStatusMessage(
       "Custom prompt cleared. Paper Flow will use the built-in default prompt.",
     );
@@ -355,6 +359,9 @@ function bindPrefEvents(window: Window) {
   if (promptNode) {
     const savePrompt = () => {
       setPref("promptOverride", promptNode.value as any);
+      // Hand-editing the prompt detaches it from any chosen preset, so the
+      // version label falls back to "no preset" until one is saved/loaded again.
+      PaperFlowPlugin.setActivePresetName("");
     };
     promptNode.addEventListener("input", savePrompt);
     promptNode.addEventListener("change", savePrompt);
@@ -385,6 +392,7 @@ function bindPromptPresetEvents(window: Window) {
         return;
       }
       setPromptOverride(window, findPresetText(name));
+      PaperFlowPlugin.setActivePresetName(name);
       PaperFlowPlugin.setStatusMessage(`Loaded prompt preset: ${name}`);
     });
   }

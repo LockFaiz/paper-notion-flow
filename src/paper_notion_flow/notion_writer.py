@@ -205,13 +205,12 @@ class NotionWriter:
                     self._delete_child_pages(paper_page_id, (overwrite_version,))
                 guide_page_id = self._create_child_page(paper_page_id, title)
             else:
-                title = guide_title
                 guide_page_id = self._reset_child_page(
                     paper_page_id,
                     guide_title,
                     legacy_titles=self._all_text_values("guide_title", extra=("Reading Guide",)),
                 )
-            self._append_page_content(guide_page_id, self._build_guide_blocks(record, guide, title=title))
+            self._append_page_content(guide_page_id, self._build_guide_blocks(record, guide))
         if self.settings.sync_notes and record.notes:
             notes_page_id = self._reset_child_page(paper_page_id, "Notes", legacy_titles=("Zotero Notes",))
             self._append_page_content(notes_page_id, self._build_note_blocks(record))
@@ -472,11 +471,12 @@ class NotionWriter:
         self,
         record: DocumentRecord,
         guide: ReadingGuide | None,
-        *,
-        title: str | None = None,
     ) -> list[dict]:
+        # The version metadata (preset · model · effort · date) lives only in the
+        # subpage title; the in-page heading stays the plain guide title so it is
+        # not repeated.
         blocks: list[dict | list[dict]] = [
-            self._heading(title or self._text("guide_title")),
+            self._heading(self._text("guide_title")),
         ]
 
         if record.collections:

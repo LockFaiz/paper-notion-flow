@@ -598,6 +598,7 @@ export class PaperFlowPlugin {
     const list = this.getPromptPresets();
     const existing = list.find((preset) => preset.text === trimmed);
     if (existing) {
+      this.setActivePresetName(existing.name);
       return existing.name;
     }
     const desired =
@@ -608,6 +609,7 @@ export class PaperFlowPlugin {
       "promptPresets",
       JSON.stringify(list.slice(0, this.MAX_PROMPT_PRESETS)),
     );
+    this.setActivePresetName(finalName);
     return finalName;
   }
 
@@ -639,6 +641,9 @@ export class PaperFlowPlugin {
     if (this.getDefaultPromptName() === name) {
       setPref("defaultPromptName", "");
     }
+    if (String(getPref("activePresetName") || "") === name) {
+      this.setActivePresetName("");
+    }
   }
 
   /** Renames a saved preset. Returns the final (deduped) name, or "". */
@@ -662,6 +667,9 @@ export class PaperFlowPlugin {
     if (this.getDefaultPromptName() === oldName) {
       setPref("defaultPromptName", preset.name);
     }
+    if (String(getPref("activePresetName") || "") === oldName) {
+      this.setActivePresetName(preset.name);
+    }
     return preset.name;
   }
 
@@ -672,6 +680,7 @@ export class PaperFlowPlugin {
       return null;
     }
     setPref("promptOverride", preset.text);
+    this.setActivePresetName(preset.name);
     return preset.text;
   }
 
@@ -683,6 +692,7 @@ export class PaperFlowPlugin {
     }
     setPref("defaultPromptName", name);
     setPref("promptOverride", preset.text);
+    this.setActivePresetName(preset.name);
     return true;
   }
 
@@ -698,7 +708,18 @@ export class PaperFlowPlugin {
     const preset = this.getPromptPresets().find((item) => item.name === name);
     if (preset) {
       setPref("promptOverride", preset.text);
+      this.setActivePresetName(preset.name);
     }
+  }
+
+  /**
+   * Records which saved preset is currently active. Set when a preset is loaded,
+   * saved, or set as default; cleared when the user edits the prompt by hand. The
+   * version label reads this pointer (not a fragile text reverse-lookup), so a
+   * renamed preset is reflected immediately.
+   */
+  static setActivePresetName(name: string) {
+    setPref("activePresetName", String(name || ""));
   }
 
   /** The saved preset name matching the active prompt, or "" for a custom prompt. */
@@ -707,7 +728,17 @@ export class PaperFlowPlugin {
     if (!text) {
       return "";
     }
-    const preset = this.getPromptPresets().find((item) => item.text === text);
+    const list = this.getPromptPresets();
+    // Prefer the explicit pointer, but only if it still matches the live prompt.
+    const active = String(getPref("activePresetName") || "").trim();
+    if (active) {
+      const pointed = list.find((item) => item.name === active);
+      if (pointed && pointed.text.trim() === text) {
+        return pointed.name;
+      }
+    }
+    // Fall back to a text match (covers presets chosen before the pointer existed).
+    const preset = list.find((item) => item.text.trim() === text);
     return preset ? preset.name : "";
   }
 
