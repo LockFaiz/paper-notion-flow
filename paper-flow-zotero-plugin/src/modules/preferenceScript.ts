@@ -222,6 +222,9 @@ function bindPrefEvents(window: Window) {
   onClick(window, "fill-default-prompt", () => {
     const defaultName = PaperFlowPlugin.getDefaultPromptName();
     setPromptOverride(window, PaperFlowPlugin.getActiveDefaultPrompt());
+    // Filling the default preset reactivates it; the built-in template (no
+    // default set) leaves no preset attached.
+    PaperFlowPlugin.setActivePresetName(defaultName);
     PaperFlowPlugin.setStatusMessage(
       defaultName
         ? `Filled your default preset "${defaultName}" into the editor.`
@@ -231,6 +234,7 @@ function bindPrefEvents(window: Window) {
 
   onClick(window, "clear-custom-prompt", () => {
     setPromptOverride(window, "");
+    PaperFlowPlugin.setActivePresetName("");
     PaperFlowPlugin.setStatusMessage(
       "Custom prompt cleared. Paper Flow will use the built-in default prompt.",
     );
@@ -355,6 +359,9 @@ function bindPrefEvents(window: Window) {
   if (promptNode) {
     const savePrompt = () => {
       setPref("promptOverride", promptNode.value as any);
+      // Hand-editing the prompt detaches it from any chosen preset, so the
+      // version label falls back to "no preset" until one is saved/loaded again.
+      PaperFlowPlugin.setActivePresetName("");
     };
     promptNode.addEventListener("input", savePrompt);
     promptNode.addEventListener("change", savePrompt);
@@ -385,6 +392,7 @@ function bindPromptPresetEvents(window: Window) {
         return;
       }
       setPromptOverride(window, findPresetText(name));
+      PaperFlowPlugin.setActivePresetName(name);
       PaperFlowPlugin.setStatusMessage(`Loaded prompt preset: ${name}`);
     });
   }
@@ -393,11 +401,29 @@ function bindPromptPresetEvents(window: Window) {
     const node = window.document.querySelector(
       `#zotero-prefpane-${config.addonRef}-prompt-override`,
     ) as HTMLTextAreaElement | null;
-    const name = PaperFlowPlugin.savePromptPreset(node?.value || "");
-    if (!name) {
+    const text = node?.value || "";
+    if (!text.trim()) {
       PaperFlowPlugin.setStatusMessage(
         "The prompt editor is empty, so there is nothing to save.",
       );
+      return;
+    }
+    const input = {
+      value: `${getString("preset-default-word")} ${PaperFlowPlugin.nextPresetIndex()}`,
+    };
+    const confirmed = Services.prompt.prompt(
+      window as unknown as mozIDOMWindowProxy,
+      getString("preset-name-title"),
+      getString("preset-name-msg"),
+      input,
+      "",
+      { value: false },
+    );
+    if (!confirmed) {
+      return;
+    }
+    const name = PaperFlowPlugin.savePromptPreset(text, input.value);
+    if (!name) {
       return;
     }
     refreshPromptPresets(window);
@@ -440,6 +466,37 @@ function bindPromptPresetEvents(window: Window) {
     PaperFlowPlugin.deletePromptPreset(name);
     refreshPromptPresets(window);
     PaperFlowPlugin.setStatusMessage(`Deleted prompt preset: ${name}`);
+    void PaperFlowPlugin.pushConfigToZotero();
+  });
+
+  onClick(window, "rename-preset", () => {
+    const presets = getPresetNode(window);
+    const name = presets?.value;
+    if (!name) {
+      PaperFlowPlugin.setStatusMessage("Select a saved prompt to rename.");
+      return;
+    }
+    const input = { value: name };
+    const confirmed = Services.prompt.prompt(
+      window as unknown as mozIDOMWindowProxy,
+      getString("preset-name-title"),
+      getString("preset-name-msg"),
+      input,
+      "",
+      { value: false },
+    );
+    if (!confirmed) {
+      return;
+    }
+    const finalName = PaperFlowPlugin.renamePromptPreset(name, input.value);
+    if (!finalName) {
+      return;
+    }
+    refreshPromptPresets(window);
+    if (presets) {
+      presets.value = finalName;
+    }
+    PaperFlowPlugin.setStatusMessage(`Renamed prompt preset to: ${finalName}`);
     void PaperFlowPlugin.pushConfigToZotero();
   });
 }

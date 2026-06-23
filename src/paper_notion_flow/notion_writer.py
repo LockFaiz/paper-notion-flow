@@ -183,16 +183,33 @@ class NotionWriter:
         record: DocumentRecord,
         guide: ReadingGuide | None,
         extracted_markdown: str,
+        variant_label: str | None = None,
+        variant_date: str | None = None,
+        overwrite_version: str | None = None,
     ) -> NotionSyncResult:
         paper_page_id = self._find_paper_page(record) or self._create_paper_page(record)
         self._update_paper_page(paper_page_id, record, guide_present=guide is not None)
         guide_page_id = None
         if guide is not None:
-            guide_page_id = self._reset_child_page(
-                paper_page_id,
-                self._text("guide_title"),
-                legacy_titles=self._all_text_values("guide_title", extra=("Reading Guide",)),
-            )
+            guide_title = self._text("guide_title")
+            if variant_label:
+                # Version key (prompt/model/effort) drives overwrite; the date is
+                # appended to the title only. Same version → overwritten (date
+                # refreshed); a new prompt/model/effort combo → a new subpage.
+                version_key = f"{guide_title} · {variant_label}"
+                title = f"{version_key} · {variant_date}" if variant_date else version_key
+                self._delete_child_pages_by_prefix(paper_page_id, version_key)
+                # When the user picked an older version to overwrite (cap reached),
+                # delete that specific subpage too to free its slot.
+                if overwrite_version and overwrite_version != title:
+                    self._delete_child_pages(paper_page_id, (overwrite_version,))
+                guide_page_id = self._create_child_page(paper_page_id, title)
+            else:
+                guide_page_id = self._reset_child_page(
+                    paper_page_id,
+                    guide_title,
+                    legacy_titles=self._all_text_values("guide_title", extra=("Reading Guide",)),
+                )
             self._append_page_content(guide_page_id, self._build_guide_blocks(record, guide))
         if self.settings.sync_notes and record.notes:
             notes_page_id = self._reset_child_page(paper_page_id, "Notes", legacy_titles=("Zotero Notes",))
@@ -204,6 +221,21 @@ class NotionWriter:
             guide_page_id=guide_page_id,
             guide_page_url=_notion_page_url(guide_page_id) if guide_page_id else None,
         )
+
+    def list_guide_variants(self, record: DocumentRecord) -> list[str]:
+        """Existing reading-guide subpage titles (versions) for this paper."""
+        paper_page_id = self._find_paper_page(record)
+        if not paper_page_id:
+            return []
+        guide_title = self._text("guide_title")
+        variants: list[str] = []
+        for block in self._list_all_child_blocks(paper_page_id):
+            if block.get("type") != "child_page":
+                continue
+            title = block["child_page"].get("title", "")
+            if title == guide_title or title.startswith(f"{guide_title} · "):
+                variants.append(title)
+        return variants
 
     def check_database(self) -> str:
         required = [("title", self.title_property)]
@@ -440,6 +472,9 @@ class NotionWriter:
         record: DocumentRecord,
         guide: ReadingGuide | None,
     ) -> list[dict]:
+        # The version metadata (preset · model · effort · date) lives only in the
+        # subpage title; the in-page heading stays the plain guide title so it is
+        # not repeated.
         blocks: list[dict | list[dict]] = [
             self._heading(self._text("guide_title")),
         ]
@@ -678,6 +713,29 @@ class NotionWriter:
             if block.get("type") != "child_page":
                 continue
             if block["child_page"]["title"] not in titles_to_delete:
+                continue
+            if block.get("archived") or block.get("in_trash"):
+                continue
+            try:
+                self.client.blocks.delete(block_id=block["id"])
+            except APIResponseError as exc:
+                if "archived" in str(exc).lower():
+                    continue
+                raise
+
+    def _create_child_page(self, parent_page_id: str, title: str) -> str:
+        page = self.client.pages.create(
+            parent={"page_id": parent_page_id},
+            properties={"title": [{"type": "text", "text": {"content": title}}]},
+        )
+        return page["id"]
+
+    def _delete_child_pages_by_prefix(self, parent_page_id: str, prefix: str) -> None:
+        for block in self._list_all_child_blocks(parent_page_id):
+            if block.get("type") != "child_page":
+                continue
+            child_title = block["child_page"].get("title", "")
+            if child_title != prefix and not child_title.startswith(f"{prefix} · "):
                 continue
             if block.get("archived") or block.get("in_trash"):
                 continue

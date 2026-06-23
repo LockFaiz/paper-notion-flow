@@ -589,8 +589,8 @@ export class PaperFlowPlugin {
     return String(getPref("defaultPromptName") || "");
   }
 
-  /** Saves the given text as a new preset (deduped by content). Returns the name. */
-  static savePromptPreset(text: string): string {
+  /** Saves the given text as a preset under `name` (deduped by content). Returns the final name. */
+  static savePromptPreset(text: string, name?: string): string {
     const trimmed = String(text || "").trim();
     if (!trimmed) {
       return "";
@@ -598,23 +598,30 @@ export class PaperFlowPlugin {
     const list = this.getPromptPresets();
     const existing = list.find((preset) => preset.text === trimmed);
     if (existing) {
+      this.setActivePresetName(existing.name);
       return existing.name;
     }
-    const name = this.makePresetName(trimmed, list);
-    list.unshift({ name, text: trimmed });
+    const desired =
+      String(name || "").trim() || `Preset ${this.nextPresetIndex()}`;
+    const finalName = this.uniquePresetName(desired, list);
+    list.unshift({ name: finalName, text: trimmed });
     setPref(
       "promptPresets",
       JSON.stringify(list.slice(0, this.MAX_PROMPT_PRESETS)),
     );
-    return name;
+    this.setActivePresetName(finalName);
+    return finalName;
   }
 
-  private static makePresetName(
-    text: string,
+  /** Next default preset number (1-based), for pre-filling the name dialog. */
+  static nextPresetIndex(): number {
+    return this.getPromptPresets().length + 1;
+  }
+
+  private static uniquePresetName(
+    base: string,
     list: Array<{ name: string }>,
   ): string {
-    const firstLine = text.split(/\r?\n/)[0].trim();
-    const base = (firstLine.slice(0, 30) || "Prompt").trim();
     const names = new Set(list.map((preset) => preset.name));
     if (!names.has(base)) {
       return base;
@@ -634,6 +641,36 @@ export class PaperFlowPlugin {
     if (this.getDefaultPromptName() === name) {
       setPref("defaultPromptName", "");
     }
+    if (String(getPref("activePresetName") || "") === name) {
+      this.setActivePresetName("");
+    }
+  }
+
+  /** Renames a saved preset. Returns the final (deduped) name, or "". */
+  static renamePromptPreset(oldName: string, newName: string): string {
+    const target = String(newName || "").trim();
+    if (!target) {
+      return "";
+    }
+    const list = this.getPromptPresets();
+    const preset = list.find((item) => item.name === oldName);
+    if (!preset) {
+      return "";
+    }
+    if (target !== oldName) {
+      preset.name = this.uniquePresetName(
+        target,
+        list.filter((item) => item !== preset),
+      );
+    }
+    setPref("promptPresets", JSON.stringify(list));
+    if (this.getDefaultPromptName() === oldName) {
+      setPref("defaultPromptName", preset.name);
+    }
+    if (String(getPref("activePresetName") || "") === oldName) {
+      this.setActivePresetName(preset.name);
+    }
+    return preset.name;
   }
 
   /** Loads a preset's text as the active prompt. Returns the text, or null. */
@@ -643,6 +680,7 @@ export class PaperFlowPlugin {
       return null;
     }
     setPref("promptOverride", preset.text);
+    this.setActivePresetName(preset.name);
     return preset.text;
   }
 
@@ -654,6 +692,7 @@ export class PaperFlowPlugin {
     }
     setPref("defaultPromptName", name);
     setPref("promptOverride", preset.text);
+    this.setActivePresetName(preset.name);
     return true;
   }
 
@@ -669,7 +708,140 @@ export class PaperFlowPlugin {
     const preset = this.getPromptPresets().find((item) => item.name === name);
     if (preset) {
       setPref("promptOverride", preset.text);
+      this.setActivePresetName(preset.name);
     }
+  }
+
+  /**
+   * Records which saved preset is currently active. Set when a preset is loaded,
+   * saved, or set as default; cleared when the user edits the prompt by hand. The
+   * version label reads this pointer (not a fragile text reverse-lookup), so a
+   * renamed preset is reflected immediately.
+   */
+  static setActivePresetName(name: string) {
+    setPref("activePresetName", String(name || ""));
+  }
+
+  /** The saved preset name matching the active prompt, or "" for a custom prompt. */
+  static currentPresetName(): string {
+    const text = String(getPref("promptOverride") || "").trim();
+    if (!text) {
+      return "";
+    }
+    const list = this.getPromptPresets();
+    // Prefer the explicit pointer, but only if it still matches the live prompt.
+    const active = String(getPref("activePresetName") || "").trim();
+    if (active) {
+      const pointed = list.find((item) => item.name === active);
+      if (pointed && pointed.text.trim() === text) {
+        return pointed.name;
+      }
+    }
+    // Fall back to a text match (covers presets chosen before the pointer existed).
+    const preset = list.find((item) => item.text.trim() === text);
+    return preset ? preset.name : "";
+  }
+
+  static readonly MAX_GUIDE_VERSIONS = 5;
+
+  /** Version key for the active settings: preset · model · effort (default fallback). */
+  static currentVariantKey(): string {
+    const preset = this.currentPresetName();
+    const model = String(getPref("aiModel") || "").trim() || "default";
+    const effort = String(getPref("aiEffort") || "").trim() || "default";
+    return [preset, model, effort].filter(Boolean).join(" · ");
+  }
+
+  /** Lists existing guide version titles for an item via the CLI. */
+  private static async listGuideVariants(itemKey: string): Promise<string[]> {
+    const command = await this.buildManagedListVariantsCommand(itemKey);
+    if (!command) {
+      return [];
+    }
+    const output = await this.executeShellCommandWithOutput(command);
+    return output
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("VARIANT:"))
+      .map((line) => line.slice("VARIANT:".length).trim())
+      .filter(Boolean);
+  }
+
+  private static async buildManagedListVariantsCommand(
+    itemKey: string,
+  ): Promise<string> {
+    const runtime = this.getRuntimeMode();
+    const workspace = this.resolveWorkspacePath(runtime);
+    if (!workspace) {
+      return "";
+    }
+    if (runtime === "native-windows") {
+      return [
+        this.buildWindowsBootstrap(),
+        "&&",
+        `cd /d ${this.quoteForCmdArg(workspace)}`,
+        "&&",
+        ...this.buildNotionEnvCmd().flatMap((part) => [part, "&&"]),
+        "uv run paper-notion-flow list-guide-variants",
+        `--key ${this.quoteForCmdArg(itemKey)}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+    const inner = [
+      `cd ${this.quoteForBashSingle(workspace)}`,
+      "&&",
+      ...this.buildNotionEnvBash(),
+      "uv run paper-notion-flow list-guide-variants",
+      `--key ${this.quoteForBashSingle(itemKey)}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return this.wrapRuntimeShellCommand(inner, runtime);
+  }
+
+  /**
+   * Decides the overwrite target before generating a guide: the active version
+   * overwrites itself; at the cap with a new version, asks which existing version
+   * to overwrite. proceed=false means the user cancelled.
+   */
+  private static async resolveGuideVersion(
+    item: Zotero.Item,
+  ): Promise<{ proceed: boolean; overwrite: string }> {
+    const variantKey = this.currentVariantKey();
+    let variants: string[] = [];
+    try {
+      variants = await this.listGuideVariants(item.key);
+    } catch (_error) {
+      return { proceed: true, overwrite: "" };
+    }
+    const exists = variants.some(
+      (title) =>
+        title.includes(` · ${variantKey} · `) ||
+        title.endsWith(` · ${variantKey}`),
+    );
+    if (exists || variants.length < this.MAX_GUIDE_VERSIONS) {
+      return { proceed: true, overwrite: "" };
+    }
+    const chosen = this.pickVariantToOverwrite(variants);
+    if (chosen === null) {
+      return { proceed: false, overwrite: "" };
+    }
+    return { proceed: true, overwrite: chosen };
+  }
+
+  /** Zotero list-selection dialog for which existing version to overwrite. */
+  private static pickVariantToOverwrite(variants: string[]): string | null {
+    const selected = { value: 0 };
+    const win = Zotero.getMainWindow();
+    const ok = Services.prompt.select(
+      win as unknown as mozIDOMWindowProxy,
+      getString("overwrite-title"),
+      getString("overwrite-msg", { args: { max: this.MAX_GUIDE_VERSIONS } }),
+      variants,
+      selected,
+    );
+    return ok ? variants[selected.value] || null : null;
   }
 
   static copyStatusToClipboard() {
@@ -945,7 +1117,23 @@ export class PaperFlowPlugin {
     syncMode: SyncMode,
   ) {
     const promptFiles = await this.createPromptFiles();
-    const command = await this.buildProcessCommand(item, promptFiles, syncMode);
+    let overwriteVersion = "";
+    if (syncMode === "with-ai") {
+      const decision = await this.resolveGuideVersion(item);
+      if (!decision.proceed) {
+        this.setStatusMessage(
+          `Skipped ${this.getItemLabel(item)} — version overwrite cancelled.`,
+        );
+        return;
+      }
+      overwriteVersion = decision.overwrite;
+    }
+    const command = await this.buildProcessCommand(
+      item,
+      promptFiles,
+      syncMode,
+      overwriteVersion,
+    );
     if (!command) {
       this.setStatusMessage(
         "Paper Flow command is empty. Configure managed runtime settings or provide a custom process command template.",
@@ -1257,6 +1445,7 @@ export class PaperFlowPlugin {
       wslPath: string;
     },
     syncMode: SyncMode,
+    overwriteVersion = "",
   ) {
     if (this.useCustomCommands()) {
       const template = String(getPref("commandTemplate") || "").trim();
@@ -1275,6 +1464,7 @@ export class PaperFlowPlugin {
       promptFile: promptFiles.runtimePath,
       promptFileWindows: promptFiles.windowsPath,
       skipAi: syncMode === "metadata-only",
+      overwriteVersion,
     });
   }
 
@@ -2023,6 +2213,7 @@ export class PaperFlowPlugin {
     promptFile: string;
     promptFileWindows: string;
     skipAi: boolean;
+    overwriteVersion?: string;
   }): { runtime: RuntimeMode; inner?: string; full?: string } | null {
     const runtime = this.getRuntimeMode();
     const workspace = this.resolveWorkspacePath(runtime);
@@ -2050,6 +2241,12 @@ export class PaperFlowPlugin {
       "--force",
       values.skipAi ? "--skip-ai" : "",
       `--prompt-override-file ${this.quoteForBashSingle(values.promptFile)}`,
+      this.currentVariantKey()
+        ? `--variant-key ${this.quoteForBashSingle(this.currentVariantKey())}`
+        : "",
+      values.overwriteVersion
+        ? `--overwrite-version ${this.quoteForBashSingle(values.overwriteVersion)}`
+        : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -2063,6 +2260,7 @@ export class PaperFlowPlugin {
     promptFile: string;
     promptFileWindows: string;
     skipAi: boolean;
+    overwriteVersion?: string;
   }) {
     const composed = this.composeManagedProcessInner(values);
     if (!composed) {
@@ -2246,6 +2444,7 @@ export class PaperFlowPlugin {
       promptFile: string;
       promptFileWindows: string;
       skipAi: boolean;
+      overwriteVersion?: string;
     },
   ) {
     return [
@@ -2271,6 +2470,12 @@ export class PaperFlowPlugin {
       "--force",
       placeholders.skipAi ? "--skip-ai" : "",
       `--prompt-override-file ${this.quoteForCmdArg(placeholders.promptFile)}`,
+      this.currentVariantKey()
+        ? `--variant-key ${this.quoteForCmdArg(this.currentVariantKey())}`
+        : "",
+      placeholders.overwriteVersion
+        ? `--overwrite-version ${this.quoteForCmdArg(placeholders.overwriteVersion)}`
+        : "",
     ]
       .filter(Boolean)
       .join(" ");

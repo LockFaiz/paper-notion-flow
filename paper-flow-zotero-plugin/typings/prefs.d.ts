@@ -40,6 +40,7 @@ declare namespace _ZoteroTypes {
       "promptOverride": string;
       "promptPresets": string;
       "defaultPromptName": string;
+      "activePresetName": string;
     };
   }
 }

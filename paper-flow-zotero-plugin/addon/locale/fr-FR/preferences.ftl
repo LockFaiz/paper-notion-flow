@@ -47,6 +47,7 @@ pref-prompt-presets-help = Jusqu'à 10 prompts enregistrés. ★ est le défaut,
 pref-save-preset = Enregistrer comme préréglage
 pref-set-default-preset = Définir par défaut
 pref-delete-preset = Supprimer la sélection
+pref-rename-preset = Renommer la sélection
 pref-fill-default-prompt = Insérer le prompt par défaut
 pref-clear-custom-prompt = Effacer le prompt personnalisé
 pref-actions-note = Utilisez ces boutons pour tester la configuration avant d'activer l'automatisation complète.

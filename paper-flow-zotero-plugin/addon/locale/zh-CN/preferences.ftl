@@ -47,6 +47,7 @@ pref-prompt-presets-help = 最多保存 10 条;★ 为默认,每次启动自动�
 pref-save-preset = 保存当前为预设
 pref-set-default-preset = 设为默认
 pref-delete-preset = 删除选中
+pref-rename-preset = 重命名选中
 pref-fill-default-prompt = 填入默认 prompt
 pref-clear-custom-prompt = 清空自定义 prompt
 pref-actions-note = 可以先用这些按钮验证当前配置，再开启完整自动化。
