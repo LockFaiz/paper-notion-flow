@@ -71,19 +71,30 @@ into canonical names, so the same concept from different papers becomes one node
 
 ## Rendering
 
-- `map render` reads `graph.json` (the local mirror of the synced Notion data) and
-  writes a self-contained `landscape.html` with the data inlined.
-- `landscape.html` is a static file using **Cytoscape.js** (force / concentric /
-  breadth-first / circle layouts, zoom, 100s of nodes — the chat mockup used
-  hand-placed SVG only to convey interaction). Node color = type, size = linked
-  paper count; click a node for its description, related nodes, and papers; plus
-  view filter and search. `--serve` runs it on localhost.
-- Node color encodes type (problem = purple, concept = teal, gap = amber), size
-  encodes linked-paper count; edges carry the relation type.
-- Right-hand detail inspector shows the selected node's papers, related nodes,
-  and gaps, plus "Open Notion page".
-- Served from `localhost`; a link is embedded on a Notion Landscape page so the
-  map is reachable from inside the workspace.
+The frontend is the **Claude-Design handoff page** `research-map.html` — a
+self-contained, zero-dependency, responsive (dark-mode aware) page that is driven
+entirely by a single global `window.GRAPH`. The design is hi-fi and final; we do
+**not** edit its UI. Source of record for the page is
+`docs/research-map-handoff/` (README / DATA_CONTRACT / TASKS); the page itself
+lives at `src/paper_notion_flow/templates/research-map.html`.
+
+- `map build` now emits the **complete `window.GRAPH`** into `graph.json`:
+  `problems / concepts / relations / gaps` (already matched the contract) plus
+  `paper_dates` and `papers_meta`. Papers are keyed by **Zotero itemKey**
+  throughout (stable across title changes); `papers_meta[key]` carries
+  title/authors/venue/abstract/tags/contribution and the Zotero PDF deep link
+  (`zotero://open-pdf/library/items/<attachmentKey>`), the Notion page URL, and
+  the AI guide parsed into structured `analysis: [{h, b}]` sections.
+- `papers_meta` is assembled by joining the Notion Papers DB (itemKey, notion_url,
+  title) with the **Zotero SQLite** reader (authors/venue/tags/PDF attachment) and
+  the Notion guide subpage (analysis/contribution). Every field is optional — the
+  page degrades gracefully per `DATA_CONTRACT.md`.
+- `map render` injects `window.GRAPH` (from `graph.json`) before the page's first
+  `<script>`; the page's built-in demo (`window.GRAPH = window.GRAPH || {…}`) is
+  thereby superseded without editing the page. `--serve` hosts it on localhost.
+- Semantic colors (fixed in the page): problem = purple, concept = teal, gap =
+  amber. The detail drawer shows PDF / AI analysis / graph position / related
+  papers; "open PDF" and "open Notion" are the only external actions.
 
 ## Plugin wiring (step 5)
 
@@ -97,6 +108,6 @@ into canonical names, so the same concept from different papers becomes one node
 - [x] 1. Schema + scaffolding — Pydantic models, config, `map` CLI group (`init`/`check`), this doc
 - [x] 2. Extraction — `map build`: per-paper extraction, cache + dedup → graph.json
 - [x] 3. Notion sync — `map sync` upserts Problems/Concepts/Relations/Gaps by name, links Papers
-- [x] 4. Render — `map render` → self-contained Cytoscape `landscape.html` (+ `--serve`)
-- [ ] 5. Plugin wiring — "Open Research Map" action + settings
-- [ ] 6. Polish — view modes, gap highlighting, timeline layout, inspector
+- [x] 4. Render — `map build` emits full `window.GRAPH` (itemKey-keyed, +paper_dates/papers_meta); `map render` injects it into the handoff `research-map.html` (+ `--serve`)
+- [ ] 5. Plugin wiring — "Open Research Map" action + settings (open the page in Zotero, inject GRAPH)
+- [ ] 6. Polish — analysis parsing fidelity, Cloudflare private site (same GRAPH contract via `/api/graph`)

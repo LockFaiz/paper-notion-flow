@@ -24,3 +24,6 @@ tsconfig.tsbuildinfo
 
 # Raw screenshot staging folder (curated copies live in docs/images/)
 /Image/
+
+# Design handoff archives (extracted into docs/research-map-handoff/ + templates/)
+*.zip

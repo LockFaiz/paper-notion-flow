@@ -110,9 +110,9 @@ def build_parser() -> argparse.ArgumentParser:
     map_export = map_sub.add_parser("export", help="Read the 4 Notion databases back into graph.json (Notion as source of truth).")
     map_export.add_argument("--data-dir", default="data", help="Directory for research-map/graph.json.")
 
-    map_render = map_sub.add_parser("render", help="Render landscape.html from the Notion databases.")
-    map_render.add_argument("--data-dir", default="data", help="Directory for the rendered landscape file.")
-    map_render.add_argument("--output", help="Output path for landscape.html (default: <data-dir>/landscape.html).")
+    map_render = map_sub.add_parser("render", help="Inject graph.json into research-map.html and (optionally) serve it.")
+    map_render.add_argument("--data-dir", default="data", help="Directory holding research-map/graph.json.")
+    map_render.add_argument("--output", help="Output path (default: <data-dir>/research-map/research-map.html).")
     map_render.add_argument("--serve", action="store_true", help="Serve the rendered map on localhost after building.")
 
     variants_parser = subparsers.add_parser(

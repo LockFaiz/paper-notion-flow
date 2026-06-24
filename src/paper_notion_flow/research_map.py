@@ -13,6 +13,7 @@ from .config import Settings
 from .models import MergeResult, ResearchMapExtraction
 from .notion_writer import TEXT, NotionWriter
 from .state import SyncState
+from .zotero import ZoteroLibrary
 
 GUIDE_TITLES = tuple({texts["guide_title"] for texts in TEXT.values()})
 _TEXT_BLOCK_LIMIT = 12000
@@ -31,7 +32,7 @@ MAP_ENV_KEYS = (
 #   1. Schema + scaffolding  <- this module's current scope
 #   2. Extraction            (build_research_map: extract ResearchMapExtraction)
 #   3. Notion sync           (build_research_map: write/dedup the 4 DBs)
-#   4. Render                (render_research_map: Cytoscape landscape.html)
+#   4. Render                (render_research_map: inject GRAPH into research-map.html)
 #   5. Plugin wiring
 #   6. Polish
 
@@ -290,6 +291,13 @@ class PaperContent:
     last_edited: str
     abstract: str
     period: str | None = None
+    zotero_key: str = ""
+    page_url: str = ""
+
+    @property
+    def paper_key(self) -> str:
+        """Stable identifier used across the whole GRAPH (Zotero itemKey preferred)."""
+        return self.zotero_key or self.page_id
 
 
 def _plain(items: list[dict]) -> str:
@@ -387,12 +395,24 @@ def _blocks_to_text(blocks: list[dict]) -> str:
     return "\n".join(parts)[:_TEXT_BLOCK_LIMIT]
 
 
-def _read_guide_text(writer: NotionWriter, paper_page_id: str) -> str:
+def _is_guide_title(title: str) -> bool:
+    """Match a reading-guide subpage, including v0.4.0 versioned titles
+    like ``论文解读 · 预设 1 · gpt-5.5 · high · 06-21``."""
+    return any(title == base or title.startswith(f"{base} · ") for base in GUIDE_TITLES)
+
+
+def _find_guide_page_id(writer: NotionWriter, paper_page_id: str) -> str | None:
+    """The most relevant reading-guide subpage id, or None."""
     for block in writer._list_all_child_blocks(paper_page_id):
-        if block.get("type") != "child_page":
-            continue
-        if block["child_page"].get("title") in GUIDE_TITLES:
-            return _blocks_to_text(writer._list_all_child_blocks(block["id"]))
+        if block.get("type") == "child_page" and _is_guide_title(block["child_page"].get("title", "")):
+            return block["id"]
+    return None
+
+
+def _read_guide_text(writer: NotionWriter, paper_page_id: str) -> str:
+    guide_page_id = _find_guide_page_id(writer, paper_page_id)
+    if guide_page_id:
+        return _blocks_to_text(writer._list_all_child_blocks(guide_page_id))
     return ""
 
 
@@ -412,6 +432,8 @@ def _iter_papers(writer: NotionWriter, settings: Settings, collections: list[str
                 last_edited=page.get("last_edited_time", ""),
                 abstract=_first_text_property(page, settings.notion_abstract_candidates),
                 period=_paper_period(page),
+                zotero_key=_first_text_property(page, settings.notion_zotero_key_candidates),
+                page_url=page.get("url", ""),
             )
         )
     return papers
@@ -540,6 +562,134 @@ def _apply_merge(graph: dict[str, dict], nodemap: dict[str, str], gapmap: dict[s
     return merged
 
 
+# ---- papers_meta (detail-drawer data source for the GRAPH contract) ---------
+
+# Localized guide section headings → their canonical role, so the analysis we
+# show in the detail drawer survives whatever guide language was used.
+_SUMMARY_HEADINGS = frozenset(texts["summary"] for texts in TEXT.values())
+_CONTRIB_HEADINGS = frozenset(texts["contributions"] for texts in TEXT.values())
+
+
+def _block_sections(blocks: list[dict]) -> list[dict]:
+    """Group flat guide blocks into ``[{h, b}]`` sections by heading.
+
+    Headings open a section; paragraphs/bullets fill its body. Consecutive
+    bullets become a list; loose paragraphs are joined into a string.
+    """
+    sections: list[dict] = []
+    current: dict | None = None
+    bullets: list[str] = []
+
+    def flush_bullets() -> None:
+        nonlocal bullets
+        if current is not None and bullets:
+            existing = current.get("b")
+            items = (existing if isinstance(existing, list) else ([existing] if existing else [])) + bullets
+            current["b"] = items
+            bullets = []
+
+    for block in blocks:
+        block_type = block.get("type") or ""
+        payload = block.get(block_type, {}) if block_type else {}
+        text = _plain(payload["rich_text"]) if isinstance(payload, dict) and "rich_text" in payload else ""
+        if block_type in ("heading_1", "heading_2", "heading_3"):
+            flush_bullets()
+            current = {"h": text, "b": ""}
+            sections.append(current)
+        elif block_type == "bulleted_list_item" or block_type == "numbered_list_item":
+            if text:
+                bullets.append(text)
+        elif text:
+            flush_bullets()
+            if current is None:
+                current = {"h": "", "b": ""}
+                sections.append(current)
+            prev = current.get("b")
+            current["b"] = f"{prev}\n{text}".strip() if isinstance(prev, str) and prev else (prev or text)
+    flush_bullets()
+    # The first section is usually the guide title heading with an empty body; drop empties.
+    return [s for s in sections if s.get("h") or s.get("b")]
+
+
+def _parse_guide_analysis(writer: NotionWriter, paper_page_id: str) -> tuple[list[dict], str]:
+    """Return ``(analysis, contribution)`` parsed from the paper's guide subpage."""
+    guide_page_id = _find_guide_page_id(writer, paper_page_id)
+    if not guide_page_id:
+        return [], ""
+    sections = [
+        s
+        for s in _block_sections(writer._list_all_child_blocks(guide_page_id))
+        if s["h"] not in GUIDE_TITLES
+    ]
+    contribution = ""
+    for section in sections:
+        if section["h"] in _SUMMARY_HEADINGS and isinstance(section["b"], str):
+            contribution = section["b"]
+            break
+    if not contribution:
+        for section in sections:
+            if section["h"] in _CONTRIB_HEADINGS:
+                body = section["b"]
+                contribution = body[0] if isinstance(body, list) and body else (body if isinstance(body, str) else "")
+                break
+    return sections, contribution
+
+
+def _build_papers_meta(settings: Settings, writer: NotionWriter, papers: list[PaperContent]) -> dict[str, dict]:
+    """Assemble ``papers_meta`` keyed by paper_key, joining Notion + Zotero SQLite.
+
+    Every field is optional; the page degrades gracefully when one is missing.
+    """
+    try:
+        library = ZoteroLibrary(settings.zotero_data_dir)
+    except Exception:  # noqa: BLE001 - Zotero DB may be unavailable; meta still works from Notion
+        library = None
+
+    meta: dict[str, dict] = {}
+    for paper in papers:
+        entry: dict = {}
+        if paper.title:
+            entry["title"] = paper.title
+        if paper.authors:
+            entry["authors"] = [a.strip() for a in re.split(r"[;,]|\band\b", paper.authors) if a.strip()]
+        if paper.abstract:
+            entry["abstract"] = paper.abstract
+        if paper.page_url:
+            entry["notion_url"] = paper.page_url
+
+        # Zotero SQLite enriches with venue/tags/authors and the PDF deep link.
+        record = None
+        if library is not None and paper.zotero_key:
+            try:
+                record = library.get_document_by_key(paper.zotero_key)
+            except Exception:  # noqa: BLE001
+                record = None
+        if record is not None:
+            if record.authors:
+                entry["authors"] = record.authors
+            venue = record.publication or record.proceedings_title
+            if venue:
+                entry["venue"] = venue
+            if record.abstract and "abstract" not in entry:
+                entry["abstract"] = record.abstract
+            if record.tags:
+                entry["tags"] = record.tags
+            pdf_key = next((a.item_key for a in record.attachments if a.content_type == "application/pdf"), "")
+            if pdf_key:
+                entry["pdf"] = f"zotero://open-pdf/library/items/{pdf_key}"
+
+        # AI guide → structured analysis + one-line contribution.
+        analysis, contribution = _parse_guide_analysis(writer, paper.page_id)
+        if analysis:
+            entry["analysis"] = analysis
+        if contribution:
+            entry["contribution"] = contribution
+
+        if entry:
+            meta[paper.paper_key] = entry
+    return meta
+
+
 def build_research_map(
     settings: Settings,
     *,
@@ -583,7 +733,7 @@ def build_research_map(
             cache_path.write_text(extraction.model_dump_json(indent=2), encoding="utf-8")
             state.mark_processed(paper.page_id, paper.last_edited)
             extracted += 1
-        _merge(graph, extraction, paper.title or paper.page_id)
+        _merge(graph, extraction, paper.paper_key)
 
     before = {key: len(value) for key, value in graph.items()}
     node_names = [n.name for n in graph["problems"].values()] + [n.name for n in graph["concepts"].values()]
@@ -593,7 +743,8 @@ def build_research_map(
     graph = _apply_merge(graph, nodemap, gapmap)
 
     graph_json = _graph_to_json(graph)
-    graph_json["paper_dates"] = {paper.title: paper.period for paper in papers if paper.title and paper.period}
+    graph_json["paper_dates"] = {paper.paper_key: paper.period for paper in papers if paper.period}
+    graph_json["papers_meta"] = _build_papers_meta(settings, writer, papers)
     graph_path = data_dir / "research-map" / "graph.json"
     graph_path.write_text(json.dumps(graph_json, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -606,8 +757,9 @@ def build_research_map(
             f"RELATIONS:{before['relations']}->{len(graph_json['relations'])}",
             f"GAPS:{before['gaps']}->{len(graph_json['gaps'])}",
             f"MERGED_ALIASES:nodes={len(nodemap)} gaps={len(gapmap)}",
+            f"PAPERS_META:{len(graph_json['papers_meta'])}",
             f"GRAPH_JSON:{graph_path}",
-            "Run `paper-notion-flow map sync` to write these into Notion.",
+            "Run `paper-notion-flow map render` to open the map, or `map sync` to write into Notion.",
         ]
     )
 
@@ -723,16 +875,17 @@ def sync_research_map(settings: Settings, *, data_dir: Path, dry_run: bool = Fal
         raise RuntimeError(f"{graph_path} not found. Run `map build` first.")
     graph = json.loads(graph_path.read_text(encoding="utf-8"))
 
-    # Papers title -> page id, so nodes can link back to the paper rows.
+    # Paper key (Zotero itemKey, matching the GRAPH) -> page id, so nodes can
+    # link back to the paper rows. Fall back to the Notion page id for papers
+    # without a Zotero key (keeps parity with build's paper_key).
     writer = NotionWriter(settings)
     paper_map: dict[str, str] = {}
     for page in writer._iter_database_pages():
-        title = _title_property(page)
-        if title:
-            paper_map[title] = page["id"]
+        zotero_key = _first_text_property(page, settings.notion_zotero_key_candidates)
+        paper_map[zotero_key or page["id"]] = page["id"]
 
-    def paper_links(titles: list[str]) -> list[str]:
-        return [paper_map[title] for title in titles if title in paper_map]
+    def paper_links(keys: list[str]) -> list[str]:
+        return [paper_map[key] for key in keys if key in paper_map]
 
     if dry_run:
         matched = sum(len(paper_links(n["papers"])) for cat in ("problems", "concepts", "gaps") for n in graph[cat])
@@ -924,65 +1077,17 @@ def export_from_notion(settings: Settings, *, data_dir: Path) -> str:
     )
 
 
-LANDSCAPE_TEMPLATE = """<!DOCTYPE html>
-<html lang="zh">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Research Map</title>
-<style>
-/*__STYLE__*/
-</style>
-</head>
-<body>
-<h1>研究地图</h1>
-<p class="sub" id="sub"></p>
-<div class="metrics" id="metrics"></div>
-<div id="trendwrap"></div>
-<div class="sec">按核心研究问题聚类(按论文比重排序)</div>
-<div id="clusters"></div>
-<div id="extra"></div>
-<script>
-const G = __GRAPH_DATA__;
-const problemsRaw=G.problems||[], concepts=G.concepts||[], gaps=G.gaps||[], relations=G.relations||[], dates=G.paper_dates||{};
-function esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-const conceptByName={}; concepts.forEach(c=>conceptByName[c.name]=c);
-const problems=problemsRaw.map(p=>({name:p.name,detail:p.description||"",papers:new Set(p.papers||[]),methods:[],mnames:new Set(),gaps:[],gnames:new Set()}));
-const pByName={}; problems.forEach(p=>pByName[p.name]=p);
-const conceptProblems={};
-relations.forEach(r=>{ const c=conceptByName[r.source], p=pByName[r.target]; if(c&&p){ if(!p.mnames.has(c.name)){p.mnames.add(c.name);p.methods.push(c);} (c.papers||[]).forEach(x=>p.papers.add(x)); (conceptProblems[c.name]=conceptProblems[c.name]||[]).push(p.name); } });
-const otherGaps=[];
-gaps.forEach(g=>{ let placed=false; (g.related||[]).forEach(rel=>{ let targets=[]; if(pByName[rel]) targets=[rel]; else if(conceptProblems[rel]) targets=conceptProblems[rel]; targets.forEach(pn=>{ const p=pByName[pn]; if(p&&!p.gnames.has(g.name)){p.gnames.add(g.name);p.gaps.push(g);placed=true;} }); }); if(!placed) otherGaps.push(g); });
-const used=new Set(); problems.forEach(p=>p.mnames.forEach(n=>used.add(n)));
-const otherMethods=concepts.filter(c=>!used.has(c.name));
-problems.sort((a,b)=>b.papers.size-a.papers.size);
-const maxP=Math.max(1,...problems.map(p=>p.papers.size));
-const allPapers=new Set(Object.keys(dates)); [...concepts,...problemsRaw,...gaps].forEach(n=>(n.papers||[]).forEach(x=>allPapers.add(x)));
-document.getElementById("sub").textContent=allPapers.size+" 篇论文 · 以核心问题为主线";
-const M=[["论文",allPapers.size,""],["核心问题",problemsRaw.length,""],["方法",concepts.length,""],["可做方向",gaps.length,"#BA7517"]];
-document.getElementById("metrics").innerHTML=M.map(m=>'<div class="metric"><div class="k">'+m[0]+'</div><div class="v"'+(m[2]?' style="color:'+m[2]+'"':'')+'>'+m[1]+'</div></div>').join("");
-const dc={}; Object.values(dates).forEach(d=>{ dc[d]=(dc[d]||0)+1; });
-const dk=Object.keys(dc).sort();
-if(dk.length){ const maxD=Math.max(...Object.values(dc)); document.getElementById("trendwrap").innerHTML='<div class="sec" style="margin-top:0">发表趋势</div><div class="trend">'+dk.map(k=>'<div class="col"><div class="ct">'+dc[k]+'</div><div class="bar" style="height:'+Math.round(6+dc[k]/maxD*46)+'px"></div><div class="lab">'+esc(k)+'</div></div>').join("")+'</div>'; }
-else{ document.getElementById("trendwrap").innerHTML='<p class="sub">发表趋势:暂无日期数据(Notion 论文行需有发表日期/年份属性;重跑 map build 后显示)。</p>'; }
-function methodChips(ms){ return ms.length?ms.map(c=>'<span class="chip m" title="'+esc(c.description||"")+'">'+esc(c.name)+'</span>').join(""):'<span class="sub">—</span>'; }
-function gapChips(gs){ return gs.length?gs.map(g=>'<span class="chip g" title="'+esc(g.rationale||"")+'">'+esc(g.name)+'</span>').join(""):'<span class="sub">—</span>'; }
-function paperList(ps){ return [...ps].sort().map(p=>'<div class="paper">· '+esc(p)+'</div>').join(""); }
-document.getElementById("clusters").innerHTML=problems.map(p=>
-  '<div class="card"><div class="phead"><span class="pname">'+esc(p.name)+'</span><span class="pbadge">'+p.papers.size+' 篇</span><div class="bar2"><i style="width:'+Math.round(p.papers.size/maxP*100)+'%"></i></div></div>'+
-  (p.detail?'<div class="pdetail">'+esc(p.detail)+'</div>':'')+
-  '<div class="row"><span class="lab">方法</span>'+methodChips(p.methods)+'</div>'+
-  '<div class="row"><span class="lab">可做</span>'+gapChips(p.gaps)+'</div>'+
-  '<details><summary>'+p.papers.size+' 篇相关论文</summary>'+paperList(p.papers)+'</details></div>'
-).join("")||'<p class="sub">没有问题节点。重跑 map build 后再看。</p>';
-let extra="";
-if(otherMethods.length) extra+='<div class="sec">未归入问题的方法 ('+otherMethods.length+')</div><div class="card">'+methodChips(otherMethods)+'</div>';
-if(otherGaps.length) extra+='<div class="sec">其他可做方向 ('+otherGaps.length+')</div><div class="card">'+gapChips(otherGaps)+'</div>';
-document.getElementById("extra").innerHTML=extra;
-</script>
-</body>
-</html>
-"""
+def inject_graph(template: str, graph: dict) -> str:
+    """Inject ``window.GRAPH`` before the page's first <script>.
+
+    The page's data block is ``window.GRAPH = window.GRAPH || {…demo…}``, so a
+    GRAPH defined earlier wins and the demo fallback is never used.
+    """
+    injection = f"<script>window.GRAPH = {json.dumps(graph, ensure_ascii=False)};</script>\n"
+    index = template.find("<script>")
+    if index == -1:
+        return template + injection
+    return template[:index] + injection + template[index:]
 
 
 def render_research_map(
@@ -992,23 +1097,27 @@ def render_research_map(
     output: Path | None = None,
     serve: bool = False,
 ) -> str:
-    """Render an interactive Cytoscape landscape.html from graph.json (step 4)."""
+    """Render the map by injecting graph.json into research-map.html (step 4).
+
+    research-map.html is a self-contained, zero-dependency frontend driven by a
+    global ``window.GRAPH``; no internet is needed to view it.
+    """
     graph_path = data_dir / "research-map" / "graph.json"
     if not graph_path.exists():
         raise RuntimeError(f"{graph_path} not found. Run `map build` first.")
     graph = json.loads(graph_path.read_text(encoding="utf-8"))
 
-    css = (Path(__file__).parent / "templates" / "landscape.css").read_text(encoding="utf-8")
-    html = LANDSCAPE_TEMPLATE.replace("/*__STYLE__*/", css).replace(
-        "__GRAPH_DATA__", json.dumps(graph, ensure_ascii=False)
-    )
-    out_path = output or (data_dir / "research-map" / "landscape.html")
+    template = (Path(__file__).parent / "templates" / "research-map.html").read_text(encoding="utf-8")
+    html = inject_graph(template, graph)
+
+    out_path = output or (data_dir / "research-map" / "research-map.html")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
 
     counts = (
         f"{len(graph.get('problems', []))} problems, {len(graph.get('concepts', []))} concepts, "
-        f"{len(graph.get('relations', []))} relations, {len(graph.get('gaps', []))} gaps"
+        f"{len(graph.get('relations', []))} relations, {len(graph.get('gaps', []))} gaps, "
+        f"{len(graph.get('papers_meta', {}))} papers"
     )
 
     if serve:
@@ -1031,7 +1140,7 @@ def render_research_map(
         [
             "MAP_RENDER:OK",
             f"GRAPH:{counts}",
-            f"LANDSCAPE_HTML:{out_path}",
-            "Open it in a browser (needs internet for the Cytoscape CDN).",
+            f"RESEARCH_MAP_HTML:{out_path}",
+            "Open it in a browser — the page is self-contained (no internet needed).",
         ]
     )
