@@ -17,6 +17,8 @@ export type FluentMessageId =
   | 'item-section-example2-button-tooltip'
   | 'item-section-example2-head-text'
   | 'item-section-example2-sidenav-tooltip'
+  | 'menuitem-open-map'
+  | 'menuitem-rebuild-map'
   | 'menuitem-settings'
   | 'overwrite-msg'
   | 'overwrite-title'

@@ -1,6 +1,8 @@
 startup-begin = Paper Flow wird geladen
 startup-finish = Paper Flow ist bereit
 menuitem-settings = Paper Flow Einstellungen
+menuitem-open-map = Forschungskarte öffnen
+menuitem-rebuild-map = Forschungskarte neu erstellen
 prefs-title = Paper Flow
 cli-checking = CLI-Version und verfügbare Modelle werden geprüft…
 cli-ok = ✓ { $tool } { $current } — aktuell

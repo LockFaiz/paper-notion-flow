@@ -116,9 +116,12 @@ export class PaperFlowPlugin {
     }
   }
 
-  /** Adds a "Paper Flow Settings" shortcut to the Tools menu. */
+  /** Adds Paper Flow shortcuts (settings + research map) to the Tools menu. */
   static registerToolsMenu() {
     this.removeStaleMenuNodes("zotero-tools-paperflow-settings");
+    this.removeStaleMenuNodes("zotero-tools-paperflow-open-map");
+    this.removeStaleMenuNodes("zotero-tools-paperflow-rebuild-map");
+    const icon = `chrome://${addon.data.config.addonRef}/content/icons/favicon@0.5x.png`;
     ztoolkit.Menu.register("menuTools", {
       tag: "menuitem",
       id: "zotero-tools-paperflow-settings",
@@ -126,7 +129,25 @@ export class PaperFlowPlugin {
       commandListener: () => {
         this.openSettingsPane();
       },
-      icon: `chrome://${addon.data.config.addonRef}/content/icons/favicon@0.5x.png`,
+      icon,
+    });
+    ztoolkit.Menu.register("menuTools", {
+      tag: "menuitem",
+      id: "zotero-tools-paperflow-open-map",
+      label: getString("menuitem-open-map"),
+      commandListener: () => {
+        void this.openResearchMap();
+      },
+      icon,
+    });
+    ztoolkit.Menu.register("menuTools", {
+      tag: "menuitem",
+      id: "zotero-tools-paperflow-rebuild-map",
+      label: getString("menuitem-rebuild-map"),
+      commandListener: () => {
+        void this.rebuildResearchMap();
+      },
+      icon,
     });
   }
 
@@ -798,6 +819,135 @@ export class PaperFlowPlugin {
       .filter(Boolean)
       .join(" ");
     return this.wrapRuntimeShellCommand(inner, runtime);
+  }
+
+  // ---- Research map -------------------------------------------------------
+
+  /** Builds a runtime-aware `paper-notion-flow map <sub>` command. */
+  private static async buildManagedMapCommand(
+    sub: "build" | "render",
+    collection: string,
+  ): Promise<string> {
+    const runtime = this.getRuntimeMode();
+    const workspace = this.resolveWorkspacePath(runtime);
+    if (!workspace) {
+      return "";
+    }
+    const useCollection = sub === "build" && collection;
+    if (runtime === "native-windows") {
+      return [
+        this.buildWindowsBootstrap(),
+        "&&",
+        `cd /d ${this.quoteForCmdArg(workspace)}`,
+        "&&",
+        ...this.buildNotionEnvCmd().flatMap((part) => [part, "&&"]),
+        `set "PAPER_FLOW_GUIDE_LANGUAGE=${this.escapeForCmdEnvValue(this.getGuideLanguage())}"`,
+        "&&",
+        `uv run paper-notion-flow map ${sub}`,
+        useCollection ? `--collection ${this.quoteForCmdArg(collection)}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+    const inner = [
+      `cd ${this.quoteForBashSingle(workspace)}`,
+      "&&",
+      ...this.buildNotionEnvBash(),
+      `PAPER_FLOW_GUIDE_LANGUAGE=${this.quoteForBashSingle(this.getGuideLanguage())}`,
+      `uv run paper-notion-flow map ${sub}`,
+      useCollection
+        ? `--collection ${this.quoteForBashSingle(collection)}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return this.wrapRuntimeShellCommand(inner, runtime);
+  }
+
+  /** file:// URL of the rendered research map under <workspace>/data/research-map/. */
+  private static researchMapHtmlFileUrl(): string {
+    const onWindows = this.isWindows();
+    const base = this.resolveWorkspacePath(
+      onWindows ? "native-windows" : "native-unix",
+    );
+    if (!base) {
+      return "";
+    }
+    if (onWindows) {
+      const winPath = `${base}\\data\\research-map\\research-map.html`;
+      return `file:///${winPath.replace(/\\/g, "/")}`;
+    }
+    return `file://${base}/data/research-map/research-map.html`;
+  }
+
+  /** The name of the collection selected in the library pane, or "" for all. */
+  private static getSelectedCollectionName(): string {
+    try {
+      const pane = (Zotero as any).getActiveZoteroPane?.();
+      const collection = pane?.getSelectedCollection?.();
+      return collection?.name ? String(collection.name) : "";
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  /** Renders the research map from existing graph.json and opens it in the browser. */
+  static async openResearchMap() {
+    const command = await this.buildManagedMapCommand("render", "");
+    if (!command) {
+      this.setStatusMessage(
+        "Set the Paper Flow workspace path in settings before opening the research map.",
+      );
+      return;
+    }
+    this.setStatusMessage("Rendering the research map…");
+    try {
+      const output = await this.executeShellCommandWithOutput(command);
+      if (!/MAP_RENDER:OK/.test(output)) {
+        this.setStatusMessage(
+          /not found/i.test(output)
+            ? 'No research map yet. Run "Rebuild Research Map" first.'
+            : "Could not render the research map. Check the Paper Flow log.",
+        );
+        return;
+      }
+      const url = this.researchMapHtmlFileUrl();
+      if (url) {
+        (Zotero as any).launchURL(url);
+        this.setStatusMessage("Opened the research map in your browser.");
+      }
+    } catch (error) {
+      this.setStatusMessage(`Research map render failed: ${error}`);
+    }
+  }
+
+  /** Re-extracts the research map (AI), then renders and opens it. Slow. */
+  static async rebuildResearchMap() {
+    const collection = this.getSelectedCollectionName();
+    const command = await this.buildManagedMapCommand("build", collection);
+    if (!command) {
+      this.setStatusMessage(
+        "Set the Paper Flow workspace path in settings before rebuilding the research map.",
+      );
+      return;
+    }
+    this.setStatusMessage(
+      collection
+        ? `Rebuilding the research map for "${collection}" — AI extraction, this can take a while…`
+        : "Rebuilding the research map for the whole library — AI extraction, this can take a while…",
+    );
+    try {
+      const output = await this.executeShellCommandWithOutput(command);
+      if (!/MAP_BUILD:OK/.test(output)) {
+        this.setStatusMessage(
+          "Research map rebuild failed. Check the Paper Flow log.",
+        );
+        return;
+      }
+      await this.openResearchMap();
+    } catch (error) {
+      this.setStatusMessage(`Research map rebuild failed: ${error}`);
+    }
   }
 
   /**

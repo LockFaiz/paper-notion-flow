@@ -98,10 +98,21 @@ lives at `src/paper_notion_flow/templates/research-map.html`.
 
 ## Plugin wiring (step 5)
 
-- New Tools/menu action **"Open Research Map"** → runs `map build` (optional) →
-  `map render` → opens the local page, reusing the existing runtime command
-  builder (WSL / native).
-- Settings: which collection to map, default layout, auto-rebuild toggle.
+Two **Tools-menu** actions (library-wide, reusing the existing runtime command
+builder for WSL / native):
+
+- **Open Research Map** — `map render` from the existing `graph.json`, then opens
+  the self-contained `research-map.html` in the system browser via
+  `Zotero.launchURL(file://…)`. Fast; if no `graph.json` exists yet it prompts to
+  rebuild first.
+- **Rebuild Research Map** — `map build` (AI extraction; slow) for the collection
+  currently selected in the library pane, or the whole library when none is
+  selected, then renders and opens.
+
+The page file is read from `<workspace>/data/research-map/research-map.html` (the
+workspace is on the Windows drive, so the Windows path is handed straight to the
+browser). No new settings pane controls — the mapped scope follows the pane
+selection.
 
 ## Roadmap
 
@@ -109,5 +120,5 @@ lives at `src/paper_notion_flow/templates/research-map.html`.
 - [x] 2. Extraction — `map build`: per-paper extraction, cache + dedup → graph.json
 - [x] 3. Notion sync — `map sync` upserts Problems/Concepts/Relations/Gaps by name, links Papers
 - [x] 4. Render — `map build` emits full `window.GRAPH` (itemKey-keyed, +paper_dates/papers_meta); `map render` injects it into the handoff `research-map.html` (+ `--serve`)
-- [ ] 5. Plugin wiring — "Open Research Map" action + settings (open the page in Zotero, inject GRAPH)
+- [x] 5. Plugin wiring — Tools-menu "Open Research Map" + "Rebuild Research Map" (render/build via the runtime command builder, open in the system browser)
 - [ ] 6. Polish — analysis parsing fidelity, Cloudflare private site (same GRAPH contract via `/api/graph`)

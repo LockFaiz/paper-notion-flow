@@ -1,6 +1,8 @@
 startup-begin = Paper Flow を読み込み中
 startup-finish = Paper Flow の準備が完了しました
 menuitem-settings = Paper Flow 設定
+menuitem-open-map = リサーチマップを開く
+menuitem-rebuild-map = リサーチマップを再構築
 prefs-title = Paper Flow
 cli-checking = CLI バージョンと利用可能モデルを確認中…
 cli-ok = ✓ { $tool } { $current } — 最新です

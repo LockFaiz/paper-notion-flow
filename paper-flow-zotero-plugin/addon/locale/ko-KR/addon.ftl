@@ -1,6 +1,8 @@
 startup-begin = Paper Flow 로드 중
 startup-finish = Paper Flow 준비됨
 menuitem-settings = Paper Flow 설정
+menuitem-open-map = 리서치 맵 열기
+menuitem-rebuild-map = 리서치 맵 다시 빌드
 prefs-title = Paper Flow
 cli-checking = CLI 버전과 사용 가능한 모델 확인 중…
 cli-ok = ✓ { $tool } { $current } — 최신 상태
