@@ -326,8 +326,8 @@ export class PaperFlowPlugin {
     if ((Zotero as any).Sync?.Runner?.syncInProgress) {
       return;
     }
-    if (type === "collection-item" && event === "add") {
-      await this.handleCollectionItemsAdded(ids);
+    if (type === "collection-item" && (event === "add" || event === "remove")) {
+      await this.handleCollectionMembershipChanged(ids);
       return;
     }
     if (type !== "item") {
@@ -364,14 +364,23 @@ export class PaperFlowPlugin {
     }
   }
 
-  private static async handleCollectionItemsAdded(ids: Array<string | number>) {
+  /**
+   * Reacts to a paper being added to or removed from a collection.
+   *
+   * A paper already in Notion gets a cheap metadata-only re-sync so its Notion
+   * collection tag tracks Zotero (collection membership changes do not alter the
+   * content fingerprint, so the modify path would otherwise skip it and the tag
+   * would go stale — which silently drops it from `map build --collection`). A
+   * genuinely new paper entering the watched collection still gets full
+   * processing (metadata + AI guide), as before.
+   */
+  private static async handleCollectionMembershipChanged(
+    ids: Array<string | number>,
+  ) {
     const itemIDs = ids
       .map((id) => this.itemIDFromCollectionItemID(id))
       .filter((id): id is number => typeof id === "number");
     if (!itemIDs.length) {
-      this.setStatusMessage(
-        `Paper Flow ignored collection-item.add because no item IDs were found: ${ids.join(", ")}`,
-      );
       return;
     }
 
@@ -381,13 +390,18 @@ export class PaperFlowPlugin {
       if (!item) {
         continue;
       }
-      if (!this.matchesCollection(item)) {
-        this.setStatusMessage(
-          `Paper Flow skipped ${this.getItemLabel(item)} because it is outside the watched collection.`,
-        );
-        continue;
+      const alreadyInNotion = Boolean(
+        this.getProcessedFingerprints()[item.key],
+      );
+      if (alreadyInNotion) {
+        // Refresh the collection tag only — no AI, and it bypasses the
+        // unchanged-content gate (which lives in the item-modify path).
+        this.queueItem(item, "collection-item.change", "metadata-only");
+      } else if (this.matchesCollection(item)) {
+        // New paper entering the watched collection: full processing.
+        this.queueItem(item, "collection-item.add");
       }
-      this.queueItem(item, "collection-item.add");
+      // Otherwise it is an untracked paper in an unwatched collection — ignore.
     }
   }
 
@@ -1046,7 +1060,11 @@ export class PaperFlowPlugin {
     return item;
   }
 
-  private static queueItem(item: Zotero.Item, reason: string) {
+  private static queueItem(
+    item: Zotero.Item,
+    reason: string,
+    syncMode: SyncMode = "with-ai",
+  ) {
     const failedAt = failedAutoRuns.get(item.key) || 0;
     const cooldownLeft = failedAt + AUTO_RETRY_COOLDOWN_MS - Date.now();
     if (cooldownLeft > 0) {
@@ -1065,7 +1083,7 @@ export class PaperFlowPlugin {
         return;
       }
       void this.enqueueRun(() =>
-        this.processItemNow(item, "auto", reason, "with-ai"),
+        this.processItemNow(item, "auto", reason, syncMode),
       );
     }, debounceMs);
     pendingTimers.set(item.key, handle);
