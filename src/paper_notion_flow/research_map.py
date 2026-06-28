@@ -282,6 +282,15 @@ def check_map_setup(settings: Settings) -> str:
     return "\n".join(lines)
 
 
+_ITEM_KEY_RE = re.compile(r"/items/([A-Za-z0-9]{8})")
+
+
+def _item_key_from_uri(uri: str) -> str:
+    """Extract the 8-char Zotero itemKey from a Zotero select/URI string."""
+    match = _ITEM_KEY_RE.search(uri or "")
+    return match.group(1) if match else ""
+
+
 @dataclass(slots=True)
 class PaperContent:
     page_id: str
@@ -292,12 +301,20 @@ class PaperContent:
     abstract: str
     period: str | None = None
     zotero_key: str = ""
+    zotero_uri: str = ""
     page_url: str = ""
 
     @property
+    def item_key(self) -> str:
+        """The Zotero itemKey from the Zotero Key property, or parsed from the
+        Zotero URI; "" when neither is available."""
+        return self.zotero_key or _item_key_from_uri(self.zotero_uri)
+
+    @property
     def paper_key(self) -> str:
-        """Stable identifier used across the whole GRAPH (Zotero itemKey preferred)."""
-        return self.zotero_key or self.page_id
+        """Stable identifier used across the whole GRAPH (Zotero itemKey preferred,
+        Notion page id as a last resort)."""
+        return self.item_key or self.page_id
 
 
 def _plain(items: list[dict]) -> str:
@@ -433,6 +450,7 @@ def _iter_papers(writer: NotionWriter, settings: Settings, collections: list[str
                 abstract=_first_text_property(page, settings.notion_abstract_candidates),
                 period=_paper_period(page),
                 zotero_key=_first_text_property(page, settings.notion_zotero_key_candidates),
+                zotero_uri=_first_text_property(page, settings.notion_zotero_uri_candidates),
                 page_url=page.get("url", ""),
             )
         )
@@ -659,9 +677,9 @@ def _build_papers_meta(settings: Settings, writer: NotionWriter, papers: list[Pa
 
         # Zotero SQLite enriches with venue/tags/authors and the PDF deep link.
         record = None
-        if library is not None and paper.zotero_key:
+        if library is not None and paper.item_key:
             try:
-                record = library.get_document_by_key(paper.zotero_key)
+                record = library.get_document_by_key(paper.item_key)
             except Exception:  # noqa: BLE001
                 record = None
         if record is not None:
@@ -882,7 +900,10 @@ def sync_research_map(settings: Settings, *, data_dir: Path, dry_run: bool = Fal
     paper_map: dict[str, str] = {}
     for page in writer._iter_database_pages():
         zotero_key = _first_text_property(page, settings.notion_zotero_key_candidates)
-        paper_map[zotero_key or page["id"]] = page["id"]
+        item_key = zotero_key or _item_key_from_uri(
+            _first_text_property(page, settings.notion_zotero_uri_candidates)
+        )
+        paper_map[item_key or page["id"]] = page["id"]
 
     def paper_links(keys: list[str]) -> list[str]:
         return [paper_map[key] for key in keys if key in paper_map]
