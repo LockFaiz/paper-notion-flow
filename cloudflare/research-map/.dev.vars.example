@@ -1,0 +1,17 @@
+# Copy to `.dev.vars` (gitignored) for local `wrangler pages dev`.
+# Use your NEW read-only Notion integration token, NOT the plugin's write token.
+# The 5 database ids are the same ones in your project .env.
+
+NOTION_TOKEN=ntn_xxx_your_readonly_token
+NOTION_DATABASE_ID=                 # Papers database
+NOTION_PROBLEMS_DATABASE_ID=
+NOTION_CONCEPTS_DATABASE_ID=
+NOTION_RELATIONS_DATABASE_ID=
+NOTION_GAPS_DATABASE_ID=
+
+# Optional (defaults shown). Same names also live in wrangler.toml [vars];
+# .dev.vars wins locally.
+# GRAPH_COLLECTION=LieGroupRL   # scope to one collection; empty = all papers
+# GRAPH_CACHE_SECONDS=600
+# GRAPH_INCLUDE_ANALYSIS=true
+# GRAPH_ANALYSIS_CAP=20

@@ -1,0 +1,19 @@
+# Cloudflare Pages project for the research map.
+#
+# Layout: static assets live in public/ (the ONLY thing uploaded); the Pages
+# Functions live in functions/ (processed separately). Keeping wrangler.toml and
+# .dev.vars in the project root keeps them out of the uploaded assets.
+#
+# Secrets are NOT stored here. Provide them as Pages environment variables:
+#   - locally:    .dev.vars  (gitignored; copy from .dev.vars.example)
+#   - production: `wrangler pages secret put <NAME>` or the dashboard
+name = "research-map"
+pages_build_output_dir = "public"
+compatibility_date = "2025-01-01"
+
+# Non-secret tunables (safe to commit). Override per-environment if you like.
+[vars]
+GRAPH_COLLECTION = "LieGroupRL"  # scope the map to one Zotero collection; "" = all papers
+GRAPH_CACHE_SECONDS = "600"   # edge cache TTL; ?refresh=1 bypasses it
+GRAPH_INCLUDE_ANALYSIS = "true"
+GRAPH_ANALYSIS_CAP = "20"     # max papers to read AI guide blocks for (subrequest budget)

@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>研究地图 · Research Map</title>
+<style>
+  :root {
+    --bg: #eef1f6;
+    --surface: #ffffff;
+    --card: #f8fafc;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text: #0f172a;
+    --muted: #64748b;
+    --faint: #94a3b8;
+    --code: #f1f5f9;
+    /* 研究问题 = 紫 */
+    --p: #7c3aed;
+    --p-ink: #6d28d9;
+    --p-soft: rgba(124, 58, 237, 0.10);
+    --p-line: rgba(124, 58, 237, 0.22);
+    /* 方法 = 青绿 */
+    --m: #0d9488;
+    --m-ink: #0f766e;
+    --m-soft: rgba(13, 148, 136, 0.10);
+    --m-line: rgba(13, 148, 136, 0.24);
+    /* 空白/可做 = 琥珀 */
+    --g: #d97706;
+    --g-ink: #b45309;
+    --g-soft: rgba(217, 119, 6, 0.12);
+    --g-line: rgba(217, 119, 6, 0.30);
+    --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px -16px rgba(15, 23, 42, 0.25);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161619;
+      --surface: #1f1f23;
+      --card: #27272b;
+      --border: #3f3f46;
+      --border-strong: #52525b;
+      --text: #e4e4e7;
+      --muted: #a1a1aa;
+      --faint: #71717a;
+      --code: #161619;
+      --p: #a78bfa;
+      --p-ink: #c4b5fd;
+      --p-soft: rgba(167, 139, 250, 0.14);
+      --p-line: rgba(167, 139, 250, 0.30);
+      --m: #2dd4bf;
+      --m-ink: #5eead4;
+      --m-soft: rgba(45, 212, 191, 0.14);
+      --m-line: rgba(45, 212, 191, 0.30);
+      --g: #fbbf24;
+      --g-ink: #fcd34d;
+      --g-soft: rgba(251, 191, 36, 0.14);
+      --g-line: rgba(251, 191, 36, 0.34);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ---------- header ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 30;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .top-inner {
+    max-width: 1180px; margin: 0 auto; padding: 14px 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; margin-right: auto; }
+  .brand .glyph {
+    width: 34px; height: 34px; border-radius: 9px; flex: none;
+    background: linear-gradient(135deg, var(--p), var(--m));
+    display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 16px;
+  }
+  .brand h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand .sub { margin: 1px 0 0; font-size: 11.5px; color: var(--muted); }
+
+  .search {
+    position: relative; flex: 1 1 240px; max-width: 340px; min-width: 180px;
+  }
+  .search input {
+    width: 100%; box-sizing: border-box;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 9px;
+    padding: 8px 12px 8px 32px; font-size: 13px; font-family: inherit;
+  }
+  .search input:focus { outline: none; border-color: var(--p); box-shadow: 0 0 0 3px var(--p-soft); }
+  .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--faint); }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-size: 12px; font-weight: 600; cursor: pointer; user-select: none;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+    border-radius: 999px; padding: 5px 11px; transition: all .12s ease;
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  .chip:hover { border-color: var(--border-strong); color: var(--text); }
+  .chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* ---------- section heading ---------- */
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin: 34px 2px 14px; }
+  .sec-head h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .sec-head .en { font-size: 11.5px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+  .sec-head .count { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  /* ---------- metric cards ---------- */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 22px; }
+  .metric {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 16px 15px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  }
+  .metric::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, var(--muted)); }
+  .metric .label { font-size: 12px; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .metric .num { font-size: 30px; font-weight: 800; line-height: 1.1; margin-top: 6px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .metric .meta { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
+  .metric.m-paper { --accent: var(--p); }
+  .metric.m-prob { --accent: var(--p); }
+  .metric.m-method { --accent: var(--m); }
+  .metric.m-gap { --accent: var(--g); }
+  .metric.m-gap .num { color: var(--g-ink); }
+
+  /* ---------- trend ---------- */
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 18px 20px 16px;
+  }
+  .trend-chart { display: flex; align-items: flex-end; gap: 3px; height: 130px; margin-top: 8px; }
+  .tbar { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; cursor: default; }
+  .tbar .fill {
+    width: 100%; max-width: 26px; border-radius: 4px 4px 2px 2px;
+    background: linear-gradient(180deg, var(--p), color-mix(in srgb, var(--p) 55%, transparent));
+    transition: filter .12s ease; min-height: 2px;
+  }
+  .tbar:hover .fill { filter: brightness(1.12); }
+  .tbar.empty .fill { background: var(--border); opacity: .5; }
+  .trend-axis { display: flex; margin-top: 7px; border-top: 1px solid var(--border); padding-top: 6px; }
+  .trend-axis .ylab { flex: 1 1 0; text-align: center; font-size: 10.5px; color: var(--faint); font-weight: 600; min-width: 0; }
+
+  /* ---------- problem clusters ---------- */
+  .clusters { display: flex; flex-direction: column; gap: 12px; }
+  .cluster {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden; border-left: 3px solid var(--p);
+  }
+  .cl-head { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 15px 18px; cursor: pointer; align-items: center; }
+  .cl-head:hover { background: var(--p-soft); }
+  .cl-title { display: flex; align-items: center; gap: 9px; }
+  .cl-title .caret { color: var(--faint); transition: transform .18s ease; flex: none; }
+  .cluster.open .cl-title .caret { transform: rotate(90deg); }
+  .cl-title h3 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .cl-title .rank { font-size: 11px; font-weight: 700; color: var(--p); background: var(--p-soft); border-radius: 6px; padding: 2px 7px; flex: none; }
+  .cl-desc { grid-column: 1; font-size: 12.5px; color: var(--muted); padding-left: 25px; }
+  .cl-weight { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; min-width: 130px; }
+  .cl-weight .pcount { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cl-weight .pcount span { color: var(--muted); font-weight: 600; font-size: 11.5px; }
+  .wbar { width: 130px; height: 7px; border-radius: 999px; background: var(--p-soft); overflow: hidden; }
+  .wbar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--p-ink), var(--p)); }
+
+  .cl-body { padding: 0 18px 16px; display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .subhead { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin: 0 0 8px; display: flex; align-items: center; gap: 6px; }
+  .subhead .tag { width: 7px; height: 7px; border-radius: 50%; }
+
+  .methods { display: flex; flex-wrap: wrap; gap: 7px; }
+  .method {
+    display: inline-flex; align-items: center; gap: 7px; cursor: default;
+    background: var(--m-soft); border: 1px solid var(--m-line); color: var(--m-ink);
+    border-radius: 8px; padding: 6px 10px; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  }
+  .method .kind { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; opacity: .7; white-space: nowrap; }
+  .method .rel { font-size: 10.5px; font-weight: 600; color: var(--muted); background: var(--surface); border-radius: 5px; padding: 1px 5px; border: 1px solid var(--border); white-space: nowrap; }
+
+  .gaps-inline { display: flex; flex-direction: column; gap: 6px; }
+  .gap-row {
+    display: flex; align-items: flex-start; gap: 9px; cursor: default;
+    background: var(--g-soft); border: 1px solid var(--g-line); border-radius: 8px; padding: 8px 11px;
+  }
+  .gap-row .mk { color: var(--g); flex: none; margin-top: 1px; }
+  .gap-row .gtxt { font-size: 12.5px; font-weight: 600; color: var(--g-ink); }
+  .gap-row .grat { font-size: 11.5px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+
+  .papers { border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 2px; }
+  .paper-li { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; font-size: 12.5px; }
+  .paper-li .ttl { min-width: 0; }
+  .paper-li .date { font-size: 11px; font-weight: 700; color: var(--p); font-variant-numeric: tabular-nums; background: var(--p-soft); border-radius: 5px; padding: 2px 7px; flex: none; min-width: 56px; text-align: center; }
+  .paper-li .ttl { color: var(--text); }
+
+  .collapsed-body { display: none; }
+  .cluster.open .collapsed-body { display: grid; }
+
+  /* ---------- opportunities ---------- */
+  .opps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .opp {
+    background: var(--surface); border: 1px solid var(--g-line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 15px 16px; border-left: 3px solid var(--g);
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .opp .box {
+    width: 20px; height: 20px; border-radius: 6px; flex: none; margin-top: 1px;
+    border: 2px solid var(--g); display: grid; place-items: center; color: var(--g);
+  }
+  .opp h4 { margin: 0 0 4px; font-size: 13.5px; font-weight: 700; color: var(--g-ink); }
+  .opp .rat { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .opp .rel { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+  .opp .rel .r {
+    font-size: 11px; font-weight: 600; border-radius: 6px; padding: 2px 8px;
+    background: var(--code); color: var(--muted); border: 1px solid var(--border); white-space: nowrap;
+  }
+  .opp .pc { font-size: 11px; color: var(--faint); margin-top: 8px; font-weight: 600; }
+
+  /* ---------- paper list ---------- */
+  .pl-wrap { padding: 6px 8px; }
+  .pl-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 10px 10px; flex-wrap: wrap; }
+  .pl-toolbar .lab { font-size: 11.5px; color: var(--faint); font-weight: 600; margin-right: 2px; }
+  .pl-sort { font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 7px; padding: 4px 10px; white-space: nowrap; }
+  .pl-sort.active { background: var(--p); border-color: var(--p); color: #fff; }
+  .pl-row { display: grid; grid-template-columns: 62px 1fr auto 18px; gap: 12px; align-items: center; padding: 11px 12px; border-radius: 10px; cursor: pointer; transition: background .12s ease; }
+  .pl-row + .pl-row { border-top: 1px solid var(--border); }
+  .pl-row:hover { background: var(--p-soft); }
+  .pl-date { font-size: 11px; font-weight: 700; color: var(--p); font-variant-numeric: tabular-nums; background: var(--p-soft); border-radius: 6px; padding: 3px 0; text-align: center; align-self: start; margin-top: 2px; }
+  .pl-main { min-width: 0; }
+  .pl-title { font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pl-zh { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .pl-contrib { font-size: 11.5px; color: var(--faint); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .pl-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 230px; }
+  .pl-chip { font-size: 10.5px; font-weight: 700; border-radius: 6px; padding: 2px 7px; white-space: nowrap; border: 1px solid; }
+  .pl-chip.pp { color: var(--p-ink); background: var(--p-soft); border-color: var(--p-line); }
+  .pl-chip.pm { color: var(--m-ink); background: var(--m-soft); border-color: var(--m-line); }
+  .pl-chip.pg { color: var(--g-ink); background: var(--g-soft); border-color: var(--g-line); }
+  .pl-badge { font-size: 10px; font-weight: 800; letter-spacing: .02em; border-radius: 5px; padding: 2px 6px; white-space: nowrap; }
+  .pl-badge.pdf { color: #fff; background: var(--p); }
+  .pl-badge.ai { color: var(--m-ink); background: var(--m-soft); border: 1px solid var(--m-line); }
+  .pl-go { color: var(--faint); }
+  .pl-row:hover .pl-go { color: var(--p); }
+
+  /* contribution card → clickable */
+  .scard[data-paper] { cursor: pointer; }
+  .scard[data-paper]:hover { border-left-width: 4px; box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 14px 30px -16px rgba(124,58,237,.5); }
+  .paper-li[data-paper] { cursor: pointer; border-radius: 7px; padding-left: 6px; padding-right: 6px; margin: 0 -6px; transition: background .12s ease; }
+  .paper-li[data-paper]:hover { background: var(--p-soft); }
+  .paper-li .ttl-zh { font-size: 11px; color: var(--faint); }
+
+  /* ---------- detail drawer ---------- */
+  .drawer-backdrop { position: fixed; inset: 0; z-index: 200; background: rgba(15,23,42,.46); opacity: 0; pointer-events: none; transition: opacity .25s ease; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+  .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 201; width: min(760px, 94vw); background: var(--bg); border-left: 1px solid var(--border); box-shadow: -20px 0 60px -30px rgba(0,0,0,.6); transform: translateX(102%); transition: transform .3s cubic-bezier(.4,0,.2,1); overflow-y: auto; overscroll-behavior: contain; }
+  .drawer.open { transform: none; }
+  .dw-head { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 90%, transparent); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 16px 22px 14px; }
+  .dw-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .dw-kicker { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--p); }
+  .dw-close { margin-left: auto; flex: none; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+  .dw-close:hover { color: var(--text); border-color: var(--border-strong); }
+  .dw-title { font-size: 20px; font-weight: 800; line-height: 1.3; letter-spacing: -0.01em; margin: 0; text-wrap: pretty; }
+  .dw-zh { font-size: 13px; color: var(--muted); margin-top: 5px; }
+  .dw-byline { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 11px; font-size: 12px; color: var(--muted); }
+  .dw-byline .by { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .dw-byline .by b { color: var(--text); font-weight: 600; }
+  .dw-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .dw-btn { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; border-radius: 9px; padding: 8px 13px; cursor: pointer; text-decoration: none; border: 1px solid var(--border); background: var(--surface); color: var(--text); white-space: nowrap; }
+  .dw-btn:hover { border-color: var(--border-strong); }
+  .dw-btn.primary { background: var(--p); border-color: var(--p); color: #fff; }
+  .dw-btn.primary:hover { filter: brightness(1.06); }
+  .dw-btn.notion { background: var(--m-soft); border-color: var(--m-line); color: var(--m-ink); }
+  .dw-btn svg { flex: none; }
+
+  .dw-body { padding: 6px 22px 60px; }
+  .dw-sec { margin-top: 22px; }
+  .dw-sec > .h { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin-bottom: 11px; }
+  .dw-sec > .h .ln { flex: 1; height: 1px; background: var(--border); }
+  .dw-contrib { font-size: 14.5px; font-weight: 600; line-height: 1.6; color: var(--text); background: var(--p-soft); border: 1px solid var(--p-line); border-radius: 12px; padding: 14px 16px; text-wrap: pretty; }
+  .dw-abstract { font-size: 13px; line-height: 1.7; color: var(--muted); text-wrap: pretty; }
+
+  .nodes-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .nodes-col .nl { font-size: 11px; font-weight: 700; margin-bottom: 7px; display: flex; align-items: center; gap: 6px; }
+  .nodes-col .nl i { width: 7px; height: 7px; border-radius: 50%; }
+  .node-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .node-chip { font-size: 12px; font-weight: 600; border-radius: 8px; padding: 6px 10px; cursor: pointer; border: 1px solid; transition: filter .12s ease; white-space: nowrap; }
+  .node-chip:hover { filter: brightness(.97); text-decoration: none; }
+  .node-chip.np { color: var(--p-ink); background: var(--p-soft); border-color: var(--p-line); }
+  .node-chip.nm { color: var(--m-ink); background: var(--m-soft); border-color: var(--m-line); }
+  .node-chip.nm .k { font-size: 9.5px; font-weight: 800; opacity: .65; text-transform: uppercase; margin-right: 4px; }
+  .node-chip.ng { color: var(--g-ink); background: var(--g-soft); border-color: var(--g-line); }
+
+  .an-sec { margin-bottom: 14px; }
+  .an-sec h5 { margin: 0 0 5px; font-size: 13px; font-weight: 700; color: var(--text); }
+  .an-sec p { margin: 0; font-size: 13px; line-height: 1.7; color: var(--muted); text-wrap: pretty; }
+  .an-ul { margin: 4px 0 0; padding-left: 18px; }
+  .an-ul li { font-size: 13px; line-height: 1.65; color: var(--muted); margin-bottom: 3px; }
+  .an-card { background: var(--m-soft); border: 1px solid var(--m-line); border-radius: 12px; padding: 15px 16px; }
+
+  .pdf-frame { width: 100%; height: 64vh; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  .pdf-stub { display: flex; align-items: center; gap: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px 16px; }
+  .pdf-stub .ic { width: 38px; height: 38px; border-radius: 9px; flex: none; display: grid; place-items: center; background: var(--p-soft); color: var(--p); }
+  .pdf-stub .tx { font-size: 12.5px; color: var(--muted); }
+  .pdf-stub .tx b { display: block; color: var(--text); font-size: 13px; font-weight: 700; margin-bottom: 1px; }
+
+  .rel-list { display: flex; flex-direction: column; gap: 2px; }
+  .rel-item { display: flex; align-items: baseline; gap: 10px; padding: 8px 8px; border-radius: 8px; cursor: pointer; font-size: 12.5px; }
+  .rel-item:hover { background: var(--p-soft); }
+  .rel-item .rd { flex: none; min-width: 52px; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--p); background: var(--p-soft); border-radius: 5px; padding: 2px 6px; font-variant-numeric: tabular-nums; }
+  .rel-item .rt { color: var(--text); min-width: 0; }
+  .lineage { display: flex; flex-direction: column; gap: 7px; }
+  .lin-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
+  .lin-row .src { font-weight: 700; color: var(--m-ink); }
+  .lin-row .rtype { font-size: 10.5px; font-weight: 700; color: var(--muted); background: var(--code); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; }
+  .lin-row .tgt { color: var(--text); }
+  .dw-empty { font-size: 12.5px; color: var(--faint); font-style: normal; padding: 4px 0; }
+
+  /* ---------- tooltip ---------- */
+  #tip {
+    position: fixed; z-index: 100; pointer-events: none; opacity: 0; transition: opacity .1s ease;
+    max-width: 280px; background: var(--text); color: var(--bg);
+    font-size: 12px; line-height: 1.5; padding: 8px 11px; border-radius: 8px;
+    box-shadow: 0 8px 24px -8px rgba(0,0,0,.5); font-weight: 500;
+  }
+  #tip .tk { font-weight: 700; display: block; margin-bottom: 2px; }
+
+  /* ---------- empty / hidden ---------- */
+  .empty {
+    text-align: center; padding: 80px 24px; color: var(--muted);
+    background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius); margin-top: 40px;
+  }
+  .empty .big { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .is-hidden { display: none !important; }
+  .no-match { font-size: 13px; color: var(--muted); padding: 26px; text-align: center; }
+
+  /* ---------- trend v2 (scrollable) ---------- */
+  .trend-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .trend-stats .st { font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--code); border: 1px solid var(--border); border-radius: 7px; padding: 4px 10px; }
+  .trend-stats .st b { color: var(--text); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .trend-body { display: flex; align-items: stretch; }
+  .trend-yaxis { position: relative; width: 24px; flex: none; height: 150px; margin-right: 4px; }
+  .trend-yaxis .yl { position: absolute; right: 2px; transform: translateY(-50%); font-size: 10px; color: var(--faint); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .trend-scroll { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+  .trend-scroll::-webkit-scrollbar { height: 8px; }
+  .trend-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+  .trend-scroll::-webkit-scrollbar-track { background: transparent; }
+  .trend-inner { min-width: 100%; width: calc(var(--n) * 46px); }
+  .trend-plot { position: relative; height: 150px; }
+  .trend-grid { position: absolute; inset: 0; pointer-events: none; }
+  .trend-grid .gl { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
+  .trend-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; }
+  .tcol { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; justify-content: center; cursor: default; }
+  .tcol .fill { width: 56%; max-width: 22px; min-height: 0; border-radius: 4px 4px 2px 2px; background: linear-gradient(180deg, var(--p), color-mix(in srgb, var(--p) 45%, transparent)); transform: scaleY(0); transform-origin: bottom; transition: transform .6s cubic-bezier(.22,1,.36,1); }
+  .trend-bars.in .fill { transform: scaleY(1); }
+  .tcol:hover .fill { filter: brightness(1.15) saturate(1.1); }
+  .tcol.empty .fill { background: var(--border); opacity: .35; height: 3px !important; transform: scaleY(1); }
+  .trend-xaxis { display: flex; margin-top: 7px; border-top: 1px solid var(--border); padding-top: 6px; }
+  .trend-xaxis .xl { flex: 1 1 0; min-width: 0; text-align: center; font-size: 10px; color: var(--faint); font-weight: 600; white-space: nowrap; overflow: hidden; }
+  .trend-xaxis .xl.yr { color: var(--text); font-weight: 800; }
+
+  /* ---------- contribution stream ---------- */
+  .stream-scroll { overflow-x: auto; overflow-y: hidden; padding: 4px 4px 12px; }
+  .stream-scroll::-webkit-scrollbar { height: 8px; }
+  .stream-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+  .stream-scroll::-webkit-scrollbar-track { background: transparent; }
+  .stream { display: flex; align-items: stretch; min-width: min-content; padding-top: 4px; }
+  .snode { flex: 0 0 232px; width: 232px; position: relative; padding: 0 12px; }
+  .snode::before { content: ""; position: absolute; left: 0; right: 0; top: 24px; height: 2px; background: var(--border); }
+  .snode:first-child::before { left: 50%; }
+  .snode:last-child::before { right: 50%; }
+  .snode .dot { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); width: 13px; height: 13px; border-radius: 50%; background: var(--p); border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--p); z-index: 2; }
+  .snode .scard { margin-top: 42px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--p); border-radius: 11px; padding: 11px 12px; box-shadow: var(--shadow); opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s cubic-bezier(.22,1,.36,1); }
+  .stream.in .snode .scard { opacity: 1; transform: none; }
+  .snode .sdate { font-size: 11px; font-weight: 800; color: var(--p); font-variant-numeric: tabular-nums; }
+  .snode .stitle { font-size: 12.5px; font-weight: 700; line-height: 1.4; margin: 4px 0 9px; color: var(--text); }
+  .snode .sctrib { display: inline-flex; align-items: baseline; gap: 6px; background: var(--m-soft); border: 1px solid var(--m-line); color: var(--m-ink); border-radius: 7px; padding: 4px 8px; font-size: 11.5px; font-weight: 700; line-height: 1.35; cursor: default; }
+  .snode .sctrib .ck { font-size: 9.5px; font-weight: 800; opacity: .75; flex: none; }
+  .snode .sprob { margin-top: 8px; font-size: 11px; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 5px; }
+  .snode .sprob i { width: 6px; height: 6px; border-radius: 50%; background: var(--p); flex: none; }
+
+  /* ---------- opportunity loop ---------- */
+  .opps2 { display: flex; flex-direction: column; gap: 14px; }
+  .oploop { background: var(--surface); border: 1px solid var(--g-line); border-left: 3px solid var(--g); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
+  .ohead { display: flex; align-items: center; gap: 11px; margin-bottom: 15px; }
+  .obadge { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; background: var(--g-soft); border: 1px solid var(--g-line); color: var(--g); }
+  .oploop h4 { margin: 0; font-size: 14.5px; font-weight: 700; color: var(--g-ink); }
+  .osub { font-size: 11px; color: var(--faint); font-weight: 600; margin-top: 1px; }
+  .ocount { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--g-ink); background: var(--g-soft); border: 1px solid var(--g-line); border-radius: 7px; padding: 3px 9px; white-space: nowrap; flex: none; }
+  .chain { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 0; margin-bottom: 13px; }
+  .cnode { flex: 1 1 140px; min-width: 120px; border-radius: 10px; padding: 9px 11px; border: 1px solid var(--border); background: var(--card); }
+  .cnode .cl { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+  .cnode .cn { font-size: 12.5px; font-weight: 700; margin-top: 2px; color: var(--text); line-height: 1.35; }
+  .cnode.prob { border-color: var(--p-line); background: var(--p-soft); }
+  .cnode.prob .cl { color: var(--p); }
+  .cnode.done { border-color: var(--m-line); background: var(--m-soft); }
+  .cnode.done .cl, .cnode.done .cn { color: var(--m-ink); }
+  .cnode.gapn { border: 1.5px dashed var(--g); background: var(--g-soft); }
+  .cnode.gapn .cl { color: var(--g); }
+  .cnode.gapn .cn { color: var(--g-ink); }
+  .cnode.goal { border-style: dashed; border-color: var(--border-strong); background: transparent; }
+  .cnode.goal .cn { color: var(--muted); }
+  .clink { flex: 0 0 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--m); }
+  .clink.broken { color: var(--g); flex: 0 0 34px; }
+  .clink svg { display: block; }
+  .owhy { font-size: 12px; line-height: 1.55; color: var(--muted); background: var(--g-soft); border: 1px solid var(--g-line); border-radius: 9px; padding: 9px 12px; margin-bottom: 12px; }
+  .owhy b { color: var(--g-ink); font-weight: 700; }
+  .owork-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin-bottom: 4px; }
+  .wrow { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; font-size: 12px; border-top: 1px dashed var(--border); }
+  .wrow:first-of-type { border-top: none; }
+  .wrow .wdate { flex: none; min-width: 54px; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--m-ink); background: var(--m-soft); border-radius: 5px; padding: 2px 6px; font-variant-numeric: tabular-nums; }
+  .wrow .wt { flex: none; max-width: 44%; font-weight: 700; color: var(--text); }
+  .wrow .wd { flex: 1 1 0; min-width: 0; color: var(--muted); }
+
+  @media (max-width: 760px) {
+    .wrow { flex-wrap: wrap; }
+    .wrow .wt { max-width: none; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .opps { grid-template-columns: 1fr; }
+    .cl-weight { min-width: 92px; }
+    .wbar { width: 92px; }
+    .brand .sub { display: none; }
+  }
+</style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div class="brand">
+        <div class="glyph">研</div>
+        <div>
+          <h1>研究地图</h1>
+          <p class="sub">Research Map · 文献研究全景</p>
+        </div>
+      </div>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="q" type="text" placeholder="搜索问题、方法或空白…" autocomplete="off" />
+      </div>
+      <div class="chips" id="filters"></div>
+    </div>
+  </header>
+
+  <div class="wrap" id="app"></div>
+
+  <div id="tip"></div>
+
+<script>
+/* ============================================================
+   研究地图 Research Map — 单文件纯前端实现
+   数据来源：全局变量 window.GRAPH
+   ------------------------------------------------------------
+   生产环境请在本脚本之前注入 window.GRAPH。
+   下面的 DEMO 数据仅在 window.GRAPH 不存在时作为演示兜底，
+   可整段删除。
+   ============================================================ */
+window.GRAPH = window.GRAPH || {
+  problems: [
+    { name: "样本效率", description: "在有限演示/交互下学到可用策略，降低数据采集成本。",
+      papers: ["等变扩散策略实现高效操作学习", "离线RL下的机器人技能复用", "少样本模仿的表征预训练", "扩散策略：通过动作扩散学习视觉运动策略", "数据增强提升模仿样本效率"] },
+    { name: "泛化与分布外鲁棒性", description: "策略在未见物体、场景与扰动下保持稳定表现。",
+      papers: ["对比表征提升操作泛化", "面向开放词表的视觉-语言-动作模型", "扰动下的鲁棒模仿学习", "测试时自适应提升操作鲁棒性"] },
+    { name: "长程任务与多步规划", description: "需要分解为多步、跨较长时间跨度才能完成的操作任务。",
+      papers: ["世界模型驱动的长程操作规划", "扩散策略：通过动作扩散学习视觉运动策略", "分层技能图用于长程装配", "子目标发现用于长程操作"] },
+    { name: "仿真到现实迁移", description: "把仿真中训练的策略可靠地迁移到真实机器人。",
+      papers: ["域随机化下的抓取迁移", "可微仿真校准减小现实差距"] },
+    { name: "多模态感知与语言对齐", description: "把视觉、语言指令与动作空间对齐，支持自然语言操控。",
+      papers: ["面向开放词表的视觉-语言-动作模型", "RT-X：跨机器人具身数据的统一训练", "指令分解提升语言对齐"] },
+    { name: "安全与约束满足", description: "在接触丰富与人机共处场景中满足安全与物理约束。",
+      papers: ["模型预测控制保障接触安全"] }
+  ],
+  concepts: [
+    { name: "等变扩散策略", kind: "method", description: "在动作扩散中引入对称等变结构，用更少数据达到同等性能。", papers: ["等变扩散策略实现高效操作学习"] },
+    { name: "扩散策略", kind: "method", description: "用条件扩散模型对动作序列建模，天然支持多模态动作分布。", papers: ["扩散策略：通过动作扩散学习视觉运动策略"] },
+    { name: "离线强化学习", kind: "method", description: "仅用历史数据集训练策略，避免在线交互成本。", papers: ["离线RL下的机器人技能复用"] },
+    { name: "对比表征学习", kind: "method", description: "通过对比目标学习与任务无关的视觉表征以提升泛化。", papers: ["对比表征提升操作泛化"] },
+    { name: "域随机化", kind: "method", description: "在仿真中随机化纹理/光照/动力学参数以弥合现实差距。", papers: ["域随机化下的抓取迁移"] },
+    { name: "模型预测控制", kind: "method", description: "在线滚动优化未来动作，可显式编码安全约束。", papers: ["模型预测控制保障接触安全"] },
+    { name: "视觉-语言-动作模型", kind: "model", description: "统一编码图像与语言并直接输出动作的大模型。", papers: ["面向开放词表的视觉-语言-动作模型", "RT-X：跨机器人具身数据的统一训练"] },
+    { name: "世界模型", kind: "model", description: "学习环境动态以支持基于想象的长程规划。", papers: ["世界模型驱动的长程操作规划"] },
+    { name: "RT-X 数据集", kind: "dataset", description: "跨多种机器人本体聚合的大规模具身操作数据集。", papers: ["RT-X：跨机器人具身数据的统一训练"] },
+    { name: "成功率", kind: "metric", description: "任务完成比例，操作学习中最常用的评测指标。", papers: [] },
+    { name: "等变神经网络", kind: "concept", description: "对群对称（如旋转/平移）保持等变的网络结构。", papers: ["等变扩散策略实现高效操作学习"] }
+  ],
+  relations: [
+    { source: "等变扩散策略", target: "样本效率", type: "addresses", rationale: "对称先验降低所需演示数量。" },
+    { source: "离线强化学习", target: "样本效率", type: "addresses", rationale: "复用历史数据，无需新交互。" },
+    { source: "扩散策略", target: "长程任务与多步规划", type: "addresses", rationale: "对多模态动作序列建模利于多步任务。" },
+    { source: "世界模型", target: "长程任务与多步规划", type: "addresses", rationale: "在想象中前瞻多步以规划。" },
+    { source: "对比表征学习", target: "泛化与分布外鲁棒性", type: "addresses", rationale: "学习任务无关表征提升迁移。" },
+    { source: "视觉-语言-动作模型", target: "多模态感知与语言对齐", type: "addresses", rationale: "统一图文与动作空间。" },
+    { source: "域随机化", target: "仿真到现实迁移", type: "addresses", rationale: "随机化参数覆盖现实分布。" },
+    { source: "模型预测控制", target: "安全与约束满足", type: "addresses", rationale: "显式编码物理与安全约束。" },
+    { source: "视觉-语言-动作模型", target: "泛化与分布外鲁棒性", type: "addresses", rationale: "开放词表提升对未见指令的泛化。" },
+    { source: "等变扩散策略", target: "扩散策略", type: "builds-on", rationale: "在扩散策略上加入等变结构。" },
+    { source: "等变扩散策略", target: "等变神经网络", type: "uses", rationale: "以等变网络作为骨干。" },
+    { source: "视觉-语言-动作模型", target: "RT-X 数据集", type: "uses", rationale: "在 RT-X 上训练。" },
+    { source: "扩散策略", target: "成功率", type: "evaluates", rationale: "以成功率衡量性能。" }
+  ],
+  gaps: [
+    { name: "真实机器人长期部署验证", rationale: "多数方法只在短期评测，缺乏数周级别的真机长期稳定性证据。", related: ["等变扩散策略", "仿真到现实迁移"], papers: ["等变扩散策略实现高效操作学习"] },
+    { name: "统一的跨任务评测基准", rationale: "成功率定义与任务集不一致，难以横向比较不同方法。", related: ["成功率", "泛化与分布外鲁棒性"], papers: [] },
+    { name: "接触丰富操作的安全保证", rationale: "学习型策略缺乏可证明的接触力/碰撞安全边界。", related: ["模型预测控制", "安全与约束满足"], papers: ["模型预测控制保障接触安全"] },
+    { name: "低算力下的实时推理", rationale: "扩散类策略推理开销大，难以在边缘设备实时运行。", related: ["扩散策略"], papers: ["扩散策略：通过动作扩散学习视觉运动策略"] },
+    { name: "语言指令的组合泛化", rationale: "VLA 对训练中未组合过的指令仍泛化不足。", related: ["视觉-语言-动作模型", "多模态感知与语言对齐"], papers: ["面向开放词表的视觉-语言-动作模型"] }
+  ],
+  paper_dates: {
+    "扩散策略：通过动作扩散学习视觉运动策略": "2023-03",
+    "等变扩散策略实现高效操作学习": "2024-09",
+    "离线RL下的机器人技能复用": "2023-07",
+    "少样本模仿的表征预训练": "2024-01",
+    "对比表征提升操作泛化": "2023-11",
+    "面向开放词表的视觉-语言-动作模型": "2024-06",
+    "扰动下的鲁棒模仿学习": "2024-03",
+    "世界模型驱动的长程操作规划": "2024-11",
+    "分层技能图用于长程装配": "2023-05",
+    "域随机化下的抓取迁移": "2022-10",
+    "可微仿真校准减小现实差距": "2024-02",
+    "RT-X：跨机器人具身数据的统一训练": "2023-10",
+    "模型预测控制保障接触安全": "2025-01",
+    "数据增强提升模仿样本效率": "2024-09",
+    "测试时自适应提升操作鲁棒性": "2024-06",
+    "子目标发现用于长程操作": "2024-11",
+    "指令分解提升语言对齐": "2024-06"
+  },
+  /* ── 论文元数据（可选）──────────────────────────────────
+     键 = papers 数组里用到的同一标题字符串。
+     生产环境由插件注入：title(原标题) / authors / venue / abstract /
+     contribution / pdf(zotero://open-pdf 或 file:// 或 http(s)) /
+     notion_url / analysis(Notion AI 解读) / tags。
+     缺省字段会优雅降级。下面是演示数据，可整段删除。 */
+  papers_meta: {
+    "等变扩散策略实现高效操作学习": {
+      title: "Equivariant Diffusion Policy for Sample-Efficient Robotic Manipulation",
+      authors: ["L. Chen", "M. Rivera", "K. Sato"], venue: "CoRL 2024",
+      pdf: "zotero://open-pdf/library/items/EQDIFF24",
+      notion_url: "https://www.notion.so/Equivariant-Diffusion-Policy-abc123",
+      contribution: "把 SE(2) 等变结构引入动作扩散，在约 1/4 演示量下达到与扩散策略相当的成功率。",
+      abstract: "We introduce an equivariant formulation of diffusion policies that bakes spatial symmetry into the denoising network, substantially reducing the number of demonstrations required to learn visuomotor manipulation skills.",
+      tags: ["操作学习", "等变", "样本效率", "扩散模型"],
+      analysis: [
+        { h: "解决了什么", b: "标准扩散策略需要大量演示才能覆盖动作分布；本文用对称先验降低样本需求。" },
+        { h: "怎么做的", b: ["将策略网络替换为 SE(2)-等变骨干", "在动作扩散的去噪步骤间共享对称权重", "保留扩散策略的多模态动作建模能力"] },
+        { h: "关键结果", b: "在 6 个操作任务上，用 25% 的演示量达到基线 95%+ 的成功率。" },
+        { h: "局限 / 留白", b: "仅在仿真与桌面级真机短期验证，缺乏长期真机稳定性证据——对应图谱里的可做方向「真实机器人长期部署验证」。" }
+      ]
+    },
+    "扩散策略：通过动作扩散学习视觉运动策略": {
+      title: "Diffusion Policy: Visuomotor Policy Learning via Action Diffusion",
+      authors: ["C. Chi", "S. Feng", "B. Burchfiel"], venue: "RSS 2023",
+      pdf: "https://arxiv.org/pdf/2303.04137",
+      notion_url: "https://www.notion.so/Diffusion-Policy-def456",
+      contribution: "用条件扩散模型对动作序列建模，天然处理多模态动作分布，成为后续一系列工作的基座。",
+      abstract: "Diffusion Policy represents the robot's visuomotor policy as a conditional denoising diffusion process over action sequences, capturing multimodal action distributions and improving training stability.",
+      tags: ["扩散模型", "视觉运动策略", "模仿学习"],
+      analysis: [
+        { h: "核心思想", b: "把策略学习转化为在动作空间上的去噪扩散，避免模式坍塌。" },
+        { h: "为什么重要", b: "为操作学习提供了可扩展、可多模态建模的范式，被等变扩散策略等工作直接继承。" },
+        { h: "遗留问题", b: "推理需多步去噪，开销大，难以在低算力边缘设备实时运行（图谱可做方向之一）。" }
+      ]
+    },
+    "面向开放词表的视觉-语言-动作模型": {
+      title: "Open-Vocabulary Vision-Language-Action Models for Generalist Manipulation",
+      authors: ["A. Khan", "R. Mehta", "Y. Liu"], venue: "ICRA 2024",
+      pdf: "zotero://open-pdf/library/items/OVVLA24",
+      notion_url: "https://www.notion.so/OV-VLA-789abc",
+      contribution: "统一编码图像与自然语言指令并直接输出动作，支持开放词表的物体与任务泛化。",
+      abstract: "A vision-language-action model trained on web-scale image-text pairs and robot trajectories, enabling open-vocabulary instruction following for manipulation.",
+      tags: ["VLA", "语言对齐", "泛化"],
+      analysis: [
+        { h: "贡献点", b: "把开放词表视觉-语言表征接到动作头，实现指令级泛化。" },
+        { h: "实验", b: "在未见物体与新指令上显著优于封闭词表基线。" },
+        { h: "留白", b: "对训练中未组合过的指令仍泛化不足——对应「语言指令的组合泛化」。" }
+      ]
+    },
+    "世界模型驱动的长程操作规划": {
+      title: "World-Model-Driven Planning for Long-Horizon Manipulation",
+      authors: ["J. Park", "D. Volkov"], venue: "NeurIPS 2024",
+      pdf: "zotero://open-pdf/library/items/WMLH24",
+      notion_url: "https://www.notion.so/World-Model-LongHorizon-321",
+      contribution: "学习环境动态作为世界模型，在想象中前瞻多步以完成长程装配类任务。",
+      tags: ["世界模型", "长程规划"],
+      analysis: [
+        { h: "做法", b: "用学到的潜在动态模型做基于想象的滚动规划。" },
+        { h: "结果", b: "在多步装配任务上比无模型基线提升成功率与样本效率。" }
+      ]
+    },
+    "模型预测控制保障接触安全": {
+      title: "Contact-Safe Manipulation via Model Predictive Control",
+      authors: ["E. Romano", "P. Singh"], venue: "T-RO 2025",
+      pdf: "zotero://open-pdf/library/items/MPCSAFE25",
+      notion_url: "https://www.notion.so/Contact-Safe-MPC-654",
+      contribution: "在线滚动优化中显式编码接触力与碰撞约束，为接触丰富操作提供安全边界。",
+      tags: ["MPC", "安全", "接触操作"],
+      analysis: [
+        { h: "动机", b: "学习型策略缺乏可证明的安全边界，接触丰富场景风险高。" },
+        { h: "方法", b: "用 MPC 显式约束接触力，运行时保证物理可行。" },
+        { h: "留白", b: "与学习型策略的耦合仍是开放问题——对应「接触丰富操作的安全保证」。" }
+      ]
+    },
+    "对比表征提升操作泛化": {
+      title: "Contrastive Visual Representations for Generalizable Manipulation",
+      authors: ["S. Iyer", "T. Brandt"], venue: "CoRL 2023",
+      pdf: "zotero://open-pdf/library/items/CONTRA23",
+      contribution: "用对比目标学习任务无关的视觉表征，提升对未见场景的迁移。",
+      tags: ["表征学习", "对比学习", "泛化"]
+    },
+    "离线RL下的机器人技能复用": {
+      title: "Reusing Robot Skills with Offline Reinforcement Learning",
+      authors: ["M. Costa", "H. Yamada"], venue: "ICML 2023",
+      pdf: "zotero://open-pdf/library/items/OFFRL23",
+      contribution: "仅用历史数据集训练，复用既有技能而无需新的在线交互，降低数据成本。",
+      tags: ["离线RL", "技能复用", "样本效率"]
+    },
+    "RT-X：跨机器人具身数据的统一训练": {
+      title: "RT-X: Robotic Learning Across Embodiments with a Unified Dataset",
+      authors: ["Open X-Embodiment Collaboration"], venue: "ICRA 2024",
+      pdf: "zotero://open-pdf/library/items/RTX23",
+      notion_url: "https://www.notion.so/RT-X-987",
+      contribution: "聚合多种机器人本体的大规模操作数据，统一训练得到可跨本体迁移的策略。",
+      tags: ["数据集", "跨本体", "VLA"]
+    }
+  }
+};
+
+(function () {
+  "use strict";
+  var KIND_LABEL = { method: "方法", model: "模型", dataset: "数据集", metric: "指标", concept: "概念" };
+  var REL_LABEL = { addresses: "解决", "builds-on": "基于", uses: "使用", contradicts: "反驳", evaluates: "评测" };
+
+  var app = document.getElementById("app");
+  var tip = document.getElementById("tip");
+
+  // -------- 读取并校验数据 --------
+  var G = window.GRAPH;
+  function arr(x) { return Array.isArray(x) ? x : []; }
+  var data = {
+    problems: arr(G && G.problems),
+    concepts: arr(G && G.concepts),
+    relations: arr(G && G.relations),
+    gaps: arr(G && G.gaps),
+    dates: (G && typeof G.paper_dates === "object" && G.paper_dates) || {}
+  };
+
+  var hasData = data.problems.length || data.concepts.length || data.gaps.length;
+  if (!hasData) { renderEmpty(); return; }
+
+  // -------- 派生索引 --------
+  var conceptByName = {};
+  data.concepts.forEach(function (c) { if (c && c.name) conceptByName[c.name] = c; });
+
+  // 每个问题：解决它的方法（relation.type=addresses, target=问题）
+  var methodsForProblem = {};
+  data.problems.forEach(function (p) { methodsForProblem[p.name] = []; });
+  data.relations.forEach(function (r) {
+    if (!r || r.type !== "addresses") return;
+    if (methodsForProblem[r.target]) {
+      methodsForProblem[r.target].push({ name: r.source, type: r.type, rationale: r.rationale });
+    }
+  });
+
+  // 方法 -> 它解决的问题集合（用于把 gap 通过方法挂到问题）
+  var problemsForMethod = {};
+  data.relations.forEach(function (r) {
+    if (!r || r.type !== "addresses") return;
+    (problemsForMethod[r.source] = problemsForMethod[r.source] || []).push(r.target);
+  });
+
+  // 每个问题相关的 gap：related 含问题名，或 related 含某个解决该问题的方法
+  var gapsForProblem = {};
+  data.problems.forEach(function (p) { gapsForProblem[p.name] = []; });
+  data.gaps.forEach(function (gap) {
+    var related = arr(gap.related);
+    var hit = {};
+    related.forEach(function (rel) {
+      if (gapsForProblem[rel] !== undefined) hit[rel] = true; // related 直接是问题
+      (problemsForMethod[rel] || []).forEach(function (pr) { hit[pr] = true; }); // related 是方法
+    });
+    Object.keys(hit).forEach(function (pn) { if (gapsForProblem[pn]) gapsForProblem[pn].push(gap); });
+  });
+
+  // 统计
+  function papersOf(p) { return arr(p.papers); }
+  var allPapers = {};
+  data.problems.forEach(function (p) { papersOf(p).forEach(function (t) { allPapers[t] = true; }); });
+  data.concepts.forEach(function (c) { arr(c.papers).forEach(function (t) { allPapers[t] = true; }); });
+  Object.keys(data.dates).forEach(function (t) { allPapers[t] = true; });
+  var totalPapers = Object.keys(allPapers).length;
+  var methodCount = data.concepts.filter(function (c) { return c.kind === "method" || c.kind === "model"; }).length;
+
+  var sortedProblems = data.problems.slice().sort(function (a, b) { return papersOf(b).length - papersOf(a).length; });
+  var maxPapers = sortedProblems.reduce(function (m, p) { return Math.max(m, papersOf(p).length); }, 1);
+
+  // 论文 -> 概念/问题（贡献来源）；月份 -> 论文；按时间排序的论文
+  var conceptsForPaper = {}, problemsForPaper = {};
+  data.concepts.forEach(function (c) { arr(c.papers).forEach(function (t) { (conceptsForPaper[t] = conceptsForPaper[t] || []).push(c); }); });
+  data.problems.forEach(function (p) { papersOf(p).forEach(function (t) { (problemsForPaper[t] = problemsForPaper[t] || []).push(p.name); }); });
+  var papersByMonth = {};
+  Object.keys(data.dates).forEach(function (t) { var m = data.dates[t]; if (/^\d{4}-\d{2}$/.test(m)) (papersByMonth[m] = papersByMonth[m] || []).push(t); });
+  var datedPapers = Object.keys(allPapers).filter(function (t) { return /^\d{4}-\d{2}$/.test(data.dates[t] || ""); })
+    .sort(function (a, b) { return data.dates[a].localeCompare(data.dates[b]); });
+
+  // 论文元数据 + 派生
+  var pmeta = (G && typeof G.papers_meta === "object" && G.papers_meta) || {};
+  function metaOf(t) { return (pmeta && pmeta[t]) || {}; }
+  function dispTitle(t) { var m = metaOf(t); return m.title || t; }        // 原标题优先
+  function zhLabel(t) { return metaOf(t).title ? t : ""; }                  // 有原标题时中文键作副标题
+  function truncate(s, n) { s = String(s == null ? "" : s); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+  var problemByName = {};
+  data.problems.forEach(function (p) { problemByName[p.name] = p; });
+
+  // gap 关联到论文（gap.papers 直接关联）
+  var gapsForPaper = {};
+  data.gaps.forEach(function (g) { arr(g.papers).forEach(function (t) { (gapsForPaper[t] = gapsForPaper[t] || []).push(g); }); });
+
+  // 该论文引入的概念参与的非 addresses 关系（学术脉络）
+  function lineageForPaper(t) {
+    var cs = (conceptsForPaper[t] || []).map(function (c) { return c.name; });
+    if (!cs.length) return [];
+    var seen = {}, out = [];
+    data.relations.forEach(function (r) {
+      if (r.type === "addresses") return;
+      if (cs.indexOf(r.source) === -1 && cs.indexOf(r.target) === -1) return;
+      var k = r.source + "|" + r.target + "|" + r.type; if (seen[k]) return; seen[k] = true; out.push(r);
+    });
+    return out;
+  }
+
+  // 相关论文：共享概念(权重2)或问题(权重1)
+  function relatedPapers(t) {
+    var score = {};
+    (conceptsForPaper[t] || []).forEach(function (c) { arr(c.papers).forEach(function (o) { if (o !== t) score[o] = (score[o] || 0) + 2; }); });
+    (problemsForPaper[t] || []).forEach(function (pn) { var p = problemByName[pn]; if (p) papersOf(p).forEach(function (o) { if (o !== t) score[o] = (score[o] || 0) + 1; }); });
+    return Object.keys(score).sort(function (a, b) { return score[b] - score[a]; }).slice(0, 5);
+  }
+
+  // 全部论文按时间倒序（论文清单默认）
+  var allPapersSorted = Object.keys(allPapers).sort(function (a, b) {
+    var da = data.dates[a] || "", db = data.dates[b] || "";
+    if (da && db) return db.localeCompare(da);
+    if (da) return -1; if (db) return 1; return dispTitle(a).localeCompare(dispTitle(b));
+  });
+  function pdfEmbeddable(u) { return /^(https?:|blob:)/i.test(u || ""); }
+
+  // -------- 渲染 --------
+  renderFilters();
+  app.innerHTML =
+    metricsHTML() +
+    trendHTML() +
+    contributionHTML() +
+    clustersHTML() +
+    oppsHTML() +
+    paperListHTML();
+
+  buildDrawer();
+  wireInteractions();
+
+  // ===================== 模板函数 =====================
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+  function tipAttr(title, body) { return 'data-tk="' + esc(title) + '" data-tb="' + esc(body || "") + '"'; }
+
+  function metricsHTML() {
+    return '<div class="metrics">' +
+      metric("m-paper", "论文", totalPapers, "已收录文献") +
+      metric("m-prob", "核心研究问题", data.problems.length, "主线方向") +
+      metric("m-method", "方法 / 模型", methodCount, "已识别技术路线") +
+      metric("m-gap", "可做方向", data.gaps.length, "待解决空白") +
+      "</div>";
+  }
+  function metric(cls, label, num, meta) {
+    return '<div class="metric ' + cls + '"><div class="label">' + esc(label) + '</div>' +
+      '<div class="num" data-val="' + num + '">' + num + '</div><div class="meta">' + esc(meta) + "</div></div>";
+  }
+
+  function trendHTML() {
+    if (!datedPapers.length) return "";
+    var counts = {};
+    Object.keys(papersByMonth).forEach(function (m) { counts[m] = papersByMonth[m].length; });
+    var sorted = Object.keys(counts).sort();
+    var first = sorted[0], last = sorted[sorted.length - 1];
+    var series = buildMonthSeries(first, last);
+    var maxC = series.reduce(function (m, s) { return Math.max(m, counts[s.key] || 0); }, 1);
+
+    // 顶部统计
+    var peakMonth = sorted.reduce(function (a, b) { return counts[b] > counts[a] ? b : a; }, sorted[0]);
+    var lastYM = last.split("-"); var ly = +lastYM[0], lm = +lastYM[1];
+    var recent = datedPapers.filter(function (t) {
+      var d = data.dates[t].split("-"); var diff = (ly - +d[0]) * 12 + (lm - +d[1]); return diff >= 0 && diff < 12;
+    }).length;
+    var stats = '<div class="trend-stats">' +
+      '<span class="st">跨度 <b>' + series.length + '</b> 个月</span>' +
+      '<span class="st">峰值 <b>' + counts[peakMonth] + '</b> 篇 · ' + peakMonth + '</span>' +
+      '<span class="st">近 12 月 <b>' + recent + '</b> 篇</span>' +
+      '<span class="st">月均 <b>' + (datedPapers.length / series.length).toFixed(1) + '</b> 篇</span>' +
+      "</div>";
+
+    // y 轴刻度
+    var step = Math.max(1, Math.ceil(maxC / 4)); var ticks = [];
+    for (var v = 0; v <= maxC; v += step) ticks.push(v);
+    if (ticks[ticks.length - 1] !== maxC) ticks.push(maxC);
+    var yaxis = ticks.map(function (v) { return '<div class="yl" style="top:' + ((1 - v / maxC) * 100) + '%">' + v + "</div>"; }).join("");
+    var grid = ticks.map(function (v) { return '<div class="gl" style="top:' + ((1 - v / maxC) * 100) + '%"></div>'; }).join("");
+
+    var bars = series.map(function (s, i) {
+      var c = counts[s.key] || 0;
+      if (c === 0) return '<div class="tcol empty"><div class="fill"></div></div>';
+      var h = Math.max(6, (c / maxC) * 100);
+      var titles = (papersByMonth[s.key] || []).slice(0, 8).join("\n· ");
+      var more = (papersByMonth[s.key] || []).length > 8 ? "\n…" : "";
+      var delay = Math.min(i * 35, 760);
+      return '<div class="tcol" ' + tipAttr(s.label + " · " + c + " 篇", "· " + titles + more) + '>' +
+        '<div class="fill" style="height:' + h + '%;transition-delay:' + delay + 'ms"></div></div>';
+    }).join("");
+
+    var xaxis = series.map(function (s) {
+      var mm = s.key.slice(5); var isJan = mm === "01" || s.key === first;
+      return '<div class="xl' + (isJan ? " yr" : "") + '">' + (isJan ? s.key.slice(0, 4) : String(+mm)) + "</div>";
+    }).join("");
+
+    return '<div class="sec-head"><h2>发表趋势</h2><span class="en">Timeline</span>' +
+      '<span class="count">' + first + " → " + last + " · 拖动查看全部</span></div>" +
+      '<div class="panel">' + stats +
+      '<div class="trend-body"><div class="trend-yaxis">' + yaxis + "</div>" +
+      '<div class="trend-scroll"><div class="trend-inner" style="--n:' + series.length + '">' +
+      '<div class="trend-plot"><div class="trend-grid">' + grid + "</div>" +
+      '<div class="trend-bars">' + bars + "</div></div>" +
+      '<div class="trend-xaxis">' + xaxis + "</div>" +
+      "</div></div></div></div>";
+  }
+
+  function contributionHTML() {
+    if (!datedPapers.length) return "";
+    var nodes = datedPapers.map(function (t, i) {
+      var cs = (conceptsForPaper[t] || []).slice().sort(function (a, b) {
+        var ord = { method: 0, model: 1, dataset: 2, metric: 3, concept: 4 };
+        return (ord[a.kind] == null ? 9 : ord[a.kind]) - (ord[b.kind] == null ? 9 : ord[b.kind]);
+      });
+      var lead = cs[0];
+      var contrib;
+      if (lead) {
+        contrib = '<span class="sctrib" ' + tipAttr(lead.name + " · " + (KIND_LABEL[lead.kind] || lead.kind), lead.description || "") + '>' +
+          '<span class="ck">' + esc(KIND_LABEL[lead.kind] || lead.kind) + "</span>" + esc(lead.name) + "</span>";
+      } else {
+        var pn = (problemsForPaper[t] || [])[0];
+        contrib = '<span class="sctrib">' + (pn ? "推进「" + esc(pn) + "」" : "—") + "</span>";
+      }
+      var prob = (problemsForPaper[t] || [])[0];
+      var delay = Math.min(i * 90, 1400);
+      return '<div class="snode"><div class="dot"></div>' +
+        '<div class="scard" data-paper="' + esc(t) + '" style="transition-delay:' + delay + 'ms">' +
+        '<div class="sdate">' + esc(data.dates[t]) + "</div>" +
+        '<div class="stitle">' + esc(truncate(dispTitle(t), 70)) + "</div>" +
+        contrib +
+        (prob ? '<div class="sprob"><i></i>' + esc(prob) + "</div>" : "") +
+        "</div></div>";
+    }).join("");
+
+    return '<div class="sec-head"><h2>论文贡献流</h2><span class="en">Contributions</span>' +
+      '<span class="count">按时间顺序 · 每篇的核心贡献点</span></div>' +
+      '<div class="panel" style="padding:14px 6px 6px"><div class="stream-scroll"><div class="stream" id="stream">' + nodes + "</div></div></div>";
+  }
+
+  function buildMonthSeries(first, last) {
+    var out = [];
+    var fy = +first.slice(0, 4), fm = +first.slice(5, 7);
+    var ly = +last.slice(0, 4), lm = +last.slice(5, 7);
+    var y = fy, m = fm, guard = 0;
+    while ((y < ly || (y === ly && m <= lm)) && guard < 600) {
+      var key = y + "-" + String(m).padStart(2, "0");
+      out.push({ key: key, label: y + "年" + m + "月" });
+      m++; if (m > 12) { m = 1; y++; }
+      guard++;
+    }
+    return out;
+  }
+
+  function clustersHTML() {
+    var head = '<div class="sec-head"><h2>按核心研究问题聚类</h2><span class="en">Problems</span>' +
+      '<span class="count">按论文数排序</span></div>';
+    var body = sortedProblems.map(function (p, i) {
+      var pc = papersOf(p).length;
+      var pct = Math.round((pc / maxPapers) * 100);
+      var libPct = totalPapers ? Math.round((pc / totalPapers) * 100) : 0;
+      var methods = methodsForProblem[p.name] || [];
+      var gaps = gapsForProblem[p.name] || [];
+
+      var methodsHTML = methods.length ? methods.map(function (m) {
+        var c = conceptByName[m.name];
+        var kind = c ? (KIND_LABEL[c.kind] || c.kind) : "";
+        var desc = c ? c.description : "";
+        return '<span class="method search-method" data-name="' + esc(m.name) + '" data-kind="' + esc(c ? c.kind : "") + '" ' +
+          tipAttr(m.name + (kind ? " · " + kind : ""), desc) + '>' +
+          (kind ? '<span class="kind">' + esc(kind) + "</span>" : "") +
+          esc(m.name) +
+          (m.rationale ? '<span class="rel" ' + tipAttr("为什么解决「" + p.name + "」", m.rationale) + ">解决</span>" : "") +
+          "</span>";
+      }).join("") : '<span style="font-size:12px;color:var(--faint)">暂无已识别的方法</span>';
+
+      var gapsHTML = gaps.length ? gaps.map(function (g) {
+        return '<div class="gap-row" ' + tipAttr(g.name, g.rationale) + '>' +
+          '<svg class="mk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>' +
+          '<div><div class="gtxt">' + esc(g.name) + '</div></div></div>';
+      }).join("") : "";
+
+      var papersHTML = papersOf(p).slice().sort(function (a, b) {
+        return (data.dates[b] || "").localeCompare(data.dates[a] || "");
+      }).map(function (t) {
+        var d = data.dates[t] || "—";
+        var zh = zhLabel(t);
+        return '<div class="paper-li" data-paper="' + esc(t) + '"><span class="date">' + esc(d) + '</span><span class="ttl">' + esc(truncate(dispTitle(t), 80)) + (zh ? ' <span class="ttl-zh">· ' + esc(zh) + '</span>' : "") + "</span></div>";
+      }).join("");
+
+      var searchBlob = esc((p.name + " " + (p.description || "") + " " +
+        methods.map(function (m) { return m.name; }).join(" ") + " " +
+        gaps.map(function (g) { return g.name; }).join(" ") + " " +
+        papersOf(p).join(" ")).toLowerCase());
+
+      return '<div class="cluster" data-search="' + searchBlob + '">' +
+        '<div class="cl-head">' +
+          '<div class="cl-title">' +
+            '<svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>' +
+            '<span class="rank">#' + (i + 1) + '</span>' +
+            "<h3>" + esc(p.name) + "</h3>" +
+          "</div>" +
+          '<div class="cl-weight">' +
+            '<div class="pcount">' + pc + ' <span>篇 · ' + libPct + '%</span></div>' +
+            '<div class="wbar"><i style="width:' + pct + '%"></i></div>' +
+          "</div>" +
+          '<div class="cl-desc">' + esc(p.description || "") + "</div>" +
+        "</div>" +
+        '<div class="cl-body">' +
+          '<div><div class="subhead"><span class="tag" style="background:var(--m)"></span>解决方法 · ' + methods.length + '</div>' +
+            '<div class="methods">' + methodsHTML + "</div></div>" +
+          (gapsHTML ? '<div class="collapsed-body"><div class="subhead"><span class="tag" style="background:var(--g)"></span>该方向的空白 · ' + gaps.length + '</div><div class="gaps-inline">' + gapsHTML + "</div></div>" : "") +
+          '<div class="collapsed-body papers"><div class="subhead"><span class="tag" style="background:var(--p)"></span>论文清单 · ' + pc + '</div>' + (papersHTML || '<span style="font-size:12px;color:var(--faint)">无</span>') + "</div>" +
+        "</div>" +
+      "</div>";
+    }).join("");
+
+    return head + '<div class="clusters" id="clusters">' + body + '<div class="no-match is-hidden" id="noMatch">没有匹配的研究问题</div></div>';
+  }
+
+  function oppsHTML() {
+    if (!data.gaps.length) return "";
+    var head = '<div class="sec-head"><h2>可做方向 · 研究机会</h2><span class="en">Opportunities</span>' +
+      '<span class="count">' + data.gaps.length + " 个研究闭环上的断点</span></div>";
+
+    var arrow = '<div class="clink"><svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 7h15"/><path d="m12 2 5 5-5 5"/></svg></div>';
+    var broken = '<div class="clink broken" ' + 'data-tk="研究闭环的断点" data-tb="已有方法尚未延伸到此，闭环在这里中断——正是可做的机会。">' +
+      '<svg width="26" height="16" viewBox="0 0 26 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h7"/><path d="M18 8h7"/><path d="m13 1-3 6 4 1-3 7"/></svg></div>';
+
+    var body = data.gaps.map(function (g) {
+      var related = arr(g.related);
+      var relMethods = related.filter(function (r) { return conceptByName[r]; });
+      var probSet = {};
+      related.forEach(function (r) { if (gapsForProblem[r] !== undefined) probSet[r] = true; });
+      relMethods.forEach(function (m) { (problemsForMethod[m] || []).forEach(function (p) { probSet[p] = true; }); });
+      var probs = Object.keys(probSet);
+
+      // 链条节点：研究问题 → 已有方法 → ╳断点 → 待补空白
+      var probNode = probs.length
+        ? '<div class="cnode prob"><div class="cl">研究问题</div><div class="cn">' + esc(probs[0]) + (probs.length > 1 ? " 等" : "") + "</div></div>"
+        : '<div class="cnode prob"><div class="cl">研究问题</div><div class="cn">相关研究方向</div></div>';
+      var doneLabel = relMethods.length ? relMethods.slice(0, 2).map(esc).join(" · ") + (relMethods.length > 2 ? " 等" : "") : "已有相关工作";
+      var doneNode = '<div class="cnode done"><div class="cl">已有方法 ✓</div><div class="cn">' + doneLabel + "</div></div>";
+      var gapNode = '<div class="cnode gapn"><div class="cl">待补空白</div><div class="cn">' + esc(g.name) + "</div></div>";
+      var chain = '<div class="chain">' + probNode + arrow + doneNode + broken + gapNode + "</div>";
+
+      // 已有工作：解释「其他论文做了啥」
+      var workRows = "";
+      var seen = {};
+      relMethods.forEach(function (mName) {
+        var c = conceptByName[mName];
+        if (!c) return;
+        var ps = arr(c.papers);
+        var dt = ps.map(function (t) { return data.dates[t]; }).filter(Boolean).sort()[0] || "—";
+        workRows += '<div class="wrow"><span class="wdate">' + esc(dt) + '</span>' +
+          '<span class="wt">' + esc(c.name) + '</span>' +
+          '<span class="wd">' + esc(c.description || "") + "</span></div>";
+        ps.forEach(function (t) { seen[t] = true; });
+      });
+      arr(g.papers).forEach(function (t) {
+        if (seen[t]) return; seen[t] = true;
+        var cs = conceptsForPaper[t] || [];
+        var desc = cs.length ? (cs[0].description || "") : ((problemsForPaper[t] || [])[0] ? "涉及「" + (problemsForPaper[t] || [])[0] + "」" : "相关研究");
+        workRows += '<div class="wrow"><span class="wdate">' + esc(data.dates[t] || "—") + '</span>' +
+          '<span class="wt">' + esc(t.length > 16 ? t.slice(0, 15) + "…" : t) + '</span>' +
+          '<span class="wd">' + esc(desc) + "</span></div>";
+      });
+
+      var pc = arr(g.papers).length;
+      var blob = esc((g.name + " " + (g.rationale || "") + " " + related.join(" ")).toLowerCase());
+      return '<div class="oploop" data-search="' + blob + '">' +
+        '<div class="ohead"><div class="obadge"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></div>' +
+        '<div><h4>' + esc(g.name) + '</h4><div class="osub">研究闭环断点 · 待补空白</div></div>' +
+        '<span class="ocount">' + (relMethods.length + pc) + " 项已有工作</span></div>" +
+        chain +
+        '<div class="owhy"><b>为什么留白：</b>' + esc(g.rationale || "尚无工作覆盖此环节。") + "</div>" +
+        (workRows ? '<div class="owork-h">已有工作做了什么</div>' + workRows : "") +
+        "</div>";
+    }).join("");
+
+    return head + '<div class="opps2" id="opps">' + body + '<div class="no-match is-hidden" id="noMatchOpp">没有匹配的研究机会</div></div>';
+  }
+
+  // ===================== 论文清单 + 详情 =====================
+  function paperListHTML() {
+    var keys = allPapersSorted;
+    if (!keys.length) return "";
+    var head = '<div class="sec-head"><h2>论文清单</h2><span class="en">Papers</span>' +
+      '<span class="count">' + keys.length + ' 篇 · 点击查看详情</span></div>';
+    var toolbar = '<div class="pl-toolbar"><span class="lab">排序</span>' +
+      '<span class="pl-sort active" data-sort="date">按时间</span>' +
+      '<span class="pl-sort" data-sort="title">按标题</span></div>';
+    return head + '<div class="panel pl-wrap"><div id="paperList">' + toolbar +
+      '<div id="plRows">' + plRows(keys) + '</div>' +
+      '<div class="no-match is-hidden" id="noMatchList">没有匹配的论文</div></div></div>';
+  }
+
+  function plRows(keys) {
+    return keys.map(function (t) {
+      var m = metaOf(t); var dt = data.dates[t] || "—";
+      var cons = conceptsForPaper[t] || []; var lead = cons[0];
+      var probs = problemsForPaper[t] || []; var gps = gapsForPaper[t] || [];
+      var contribution = m.contribution || (lead ? lead.name : (probs[0] ? "推进「" + probs[0] + "」" : ""));
+      var chips = "";
+      if (probs.length) chips += '<span class="pl-chip pp">' + probs.length + ' 问题</span>';
+      if (cons.length) chips += '<span class="pl-chip pm">' + cons.length + ' 方法/概念</span>';
+      if (gps.length) chips += '<span class="pl-chip pg">' + gps.length + ' 空白</span>';
+      var hasPdf = !!(m.pdf || m.pdf_url); var hasAI = !!(m.analysis || m.notion_url);
+      var zh = zhLabel(t);
+      var blob = esc((dispTitle(t) + " " + t + " " + contribution + " " + probs.join(" ")).toLowerCase());
+      return '<div class="pl-row" data-paper="' + esc(t) + '" data-search="' + blob + '">' +
+        '<div class="pl-date">' + esc(dt) + '</div>' +
+        '<div class="pl-main"><div class="pl-title">' + esc(dispTitle(t)) + '</div>' +
+          (zh ? '<div class="pl-zh">' + esc(zh) + '</div>' : "") +
+          (contribution ? '<div class="pl-contrib">' + esc(contribution) + '</div>' : "") + '</div>' +
+        '<div class="pl-meta">' + chips +
+          (hasPdf ? '<span class="pl-badge pdf">PDF</span>' : "") +
+          (hasAI ? '<span class="pl-badge ai">AI 解读</span>' : "") + '</div>' +
+        '<div class="pl-go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function sortList(mode) {
+    var keys = allPapersSorted.slice();
+    if (mode === "title") keys.sort(function (a, b) { return dispTitle(a).localeCompare(dispTitle(b), "zh"); });
+    var rows = document.getElementById("plRows");
+    if (rows) { rows.innerHTML = plRows(keys); applyFilters(); }
+  }
+
+  function buildDrawer() {
+    if (document.getElementById("drawer")) return;
+    var bg = document.createElement("div"); bg.className = "drawer-backdrop"; bg.id = "drawerBg";
+    var d = document.createElement("aside"); d.className = "drawer"; d.id = "drawer";
+    d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
+    document.body.appendChild(bg); document.body.appendChild(d);
+  }
+
+  function sec(title, body) { return '<div class="dw-sec"><div class="h">' + esc(title) + '<span class="ln"></span></div>' + body + '</div>'; }
+  function nodeCol(label, color, chips) { return '<div class="nodes-col"><div class="nl"><i style="background:' + color + '"></i>' + esc(label) + '</div><div class="node-chips">' + chips + '</div></div>'; }
+  function svgIcon(p, w) { return '<svg width="' + (w || 15) + '" height="' + (w || 15) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
+  function pdfIcon() { return svgIcon('<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="M9 13h6M9 17h4"/>'); }
+  function notionIcon() { return svgIcon('<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'); }
+  function copyIcon() { return svgIcon('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'); }
+  function xIcon() { return svgIcon('<path d="M18 6 6 18M6 6l12 12"/>', 16); }
+
+  function openPaper(t) {
+    var m = metaOf(t); var dt = data.dates[t] || m.date || "—";
+    var probs = problemsForPaper[t] || []; var cons = conceptsForPaper[t] || []; var gps = gapsForPaper[t] || [];
+    var lead = cons[0];
+
+    var byParts = [];
+    if (m.authors && m.authors.length) byParts.push('<span class="by"><b>' + esc(m.authors.slice(0, 4).join("、")) + (m.authors.length > 4 ? " 等" : "") + '</b></span>');
+    if (m.venue) byParts.push('<span class="by">' + esc(m.venue) + '</span>');
+    byParts.push('<span class="by">' + esc(dt) + '</span>');
+
+    var pdf = m.pdf || m.pdf_url || "";
+    var actions = "";
+    if (pdf) {
+      var lab = /^zotero:/i.test(pdf) ? "在 Zotero 中打开 PDF" : (/^file:/i.test(pdf) ? "用本地阅读器打开" : "打开 PDF");
+      actions += '<a class="dw-btn primary" href="' + esc(pdf) + '"' + (pdfEmbeddable(pdf) ? ' target="_blank" rel="noopener"' : "") + '>' + pdfIcon() + lab + '</a>';
+    }
+    if (m.notion_url) actions += '<a class="dw-btn notion" href="' + esc(m.notion_url) + '" target="_blank" rel="noopener">' + notionIcon() + '在 Notion 中打开</a>';
+    if (m.bibtex) actions += '<button class="dw-btn" data-copy="' + esc(m.bibtex) + '">' + copyIcon() + '复制引用</button>';
+
+    var nodeBlocks = "";
+    if (probs.length) nodeBlocks += nodeCol("研究问题", "var(--p)", probs.map(function (pn) {
+      return '<span class="node-chip np" data-goto="problem" data-val="' + esc(pn) + '">' + esc(pn) + '</span>'; }).join(""));
+    if (cons.length) nodeBlocks += nodeCol("方法 / 概念", "var(--m)", cons.map(function (c) {
+      return '<span class="node-chip nm" data-goto="concept" data-val="' + esc(c.name) + '"><span class="k">' + esc(KIND_LABEL[c.kind] || c.kind) + '</span>' + esc(c.name) + '</span>'; }).join(""));
+    if (gps.length) nodeBlocks += nodeCol("关联空白 / 可做方向", "var(--g)", gps.map(function (g) {
+      return '<span class="node-chip ng" data-goto="gap" data-val="' + esc(g.name) + '">' + esc(g.name) + '</span>'; }).join(""));
+
+    var contrib = m.contribution || (lead ? ("引入「" + lead.name + "」" + (lead.description ? "：" + lead.description : "")) : "");
+
+    var aiHtml;
+    if (m.analysis && m.analysis.length) {
+      aiHtml = '<div class="an-card">' + m.analysis.map(function (s) {
+        var body;
+        if (Array.isArray(s.b)) body = '<ul class="an-ul">' + s.b.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("") + '</ul>';
+        else body = '<p>' + esc(s.b).replace(/\n/g, "<br>") + '</p>';
+        return '<div class="an-sec"><h5>' + esc(s.h) + '</h5>' + body + '</div>';
+      }).join("") + '</div>';
+    } else if (m.notion_url) {
+      aiHtml = '<div class="dw-empty">解读保存在 Notion，点击上方「在 Notion 中打开」查看完整内容。</div>';
+    } else {
+      aiHtml = '<div class="dw-empty">暂无 AI 解读（同步 Notion 解析后将在此直接显示，无需打开 Notion）。</div>';
+    }
+
+    var pdfHtml;
+    if (pdf && pdfEmbeddable(pdf)) {
+      pdfHtml = '<iframe class="pdf-frame" src="' + esc(pdf) + '" title="PDF 预览"></iframe>';
+    } else if (pdf) {
+      pdfHtml = '<div class="pdf-stub"><div class="ic">' + pdfIcon() + '</div><div class="tx"><b>' + (/^zotero:/i.test(pdf) ? "在 Zotero 阅读器中打开" : "用本地 PDF 阅读器打开") + '</b>该条目的 PDF 已存在 Zotero 库中，点击上方按钮即可打开。</div></div>';
+    } else {
+      pdfHtml = '<div class="dw-empty">未关联 PDF（在 Zotero 中为该条目附加 PDF 后即可在此打开）。</div>';
+    }
+
+    var lin = lineageForPaper(t);
+    var linHtml = lin.length ? '<div class="lineage">' + lin.map(function (r) {
+      return '<div class="lin-row"><span class="src">' + esc(r.source) + '</span><span class="rtype">' + esc(REL_LABEL[r.type] || r.type) + '</span><span class="tgt">' + esc(r.target) + '</span></div>';
+    }).join("") + '</div>' : "";
+
+    var rel = relatedPapers(t);
+    var relHtml = rel.length ? '<div class="rel-list">' + rel.map(function (o) {
+      return '<div class="rel-item" data-paper="' + esc(o) + '"><span class="rd">' + esc(data.dates[o] || "—") + '</span><span class="rt">' + esc(truncate(dispTitle(o), 72)) + '</span></div>';
+    }).join("") + '</div>' : "";
+
+    var html =
+      '<div class="dw-head"><div class="dw-top"><span class="dw-kicker">论文详情</span>' +
+        '<button class="dw-close" data-close aria-label="关闭">' + xIcon() + '</button></div>' +
+        '<h2 class="dw-title">' + esc(dispTitle(t)) + '</h2>' +
+        (zhLabel(t) ? '<div class="dw-zh">' + esc(t) + '</div>' : "") +
+        '<div class="dw-byline">' + byParts.join("") + '</div>' +
+        (actions ? '<div class="dw-actions">' + actions + '</div>' : "") +
+      '</div>' +
+      '<div class="dw-body">' +
+        (contrib ? sec("核心贡献", '<div class="dw-contrib">' + esc(contrib) + '</div>') : "") +
+        (nodeBlocks ? sec("它在研究地图中的位置", '<div class="nodes-grid">' + nodeBlocks + '</div>') : "") +
+        sec("AI 解读 · Notion", aiHtml) +
+        (m.abstract ? sec("摘要", '<div class="dw-abstract">' + esc(m.abstract) + '</div>') : "") +
+        sec("PDF 全文", pdfHtml) +
+        (linHtml ? sec("学术脉络", linHtml) : "") +
+        (relHtml ? sec("相关论文", relHtml) : "") +
+      '</div>';
+
+    var d = document.getElementById("drawer");
+    d.innerHTML = html; d.scrollTop = 0;
+    document.getElementById("drawerBg").classList.add("open");
+    d.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closePaper() {
+    var d = document.getElementById("drawer"); if (!d) return;
+    d.classList.remove("open");
+    var bg = document.getElementById("drawerBg"); if (bg) bg.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  function doGoto(type, val) {
+    closePaper();
+    setTimeout(function () {
+      if (type === "problem") {
+        var cl = null;
+        document.querySelectorAll("#clusters .cluster").forEach(function (c) { var h = c.querySelector("h3"); if (h && h.textContent === val) cl = c; });
+        if (cl) { cl.classList.add("open"); scrollToEl(cl); }
+      } else if (type === "concept") {
+        var q = document.getElementById("q"); q.value = val; applyFilters(); scrollToEl(document.getElementById("clusters"));
+      } else if (type === "gap") {
+        scrollToEl(document.getElementById("opps"));
+      }
+    }, 280);
+  }
+  function scrollToEl(el) { if (!el) return; var y = el.getBoundingClientRect().top + window.pageYOffset - 76; window.scrollTo({ top: y, behavior: "smooth" }); }
+  function copyText(s) { try { navigator.clipboard.writeText(s); } catch (e) {} }
+
+  // ===================== 交互 =====================
+  function renderFilters() {
+    var kinds = {};
+    data.concepts.forEach(function (c) { if (c.kind) kinds[c.kind] = true; });
+    var order = ["method", "model", "dataset", "metric", "concept"];
+    var present = order.filter(function (k) { return kinds[k]; });
+    var html = '<span class="chip active" data-kind="all">全部</span>' +
+      present.map(function (k) {
+        return '<span class="chip" data-kind="' + k + '"><span class="dot" style="background:var(--m)"></span>' + (KIND_LABEL[k] || k) + "</span>";
+      }).join("");
+    document.getElementById("filters").innerHTML = html;
+  }
+
+  function wireInteractions() {
+    // 展开/收起
+    document.querySelectorAll(".cl-head").forEach(function (h) {
+      h.addEventListener("click", function () { h.parentElement.classList.toggle("open"); });
+    });
+
+    // tooltip
+    document.addEventListener("mouseover", function (e) {
+      var el = e.target.closest("[data-tk]");
+      if (!el) return;
+      var tk = el.getAttribute("data-tk"), tb = el.getAttribute("data-tb");
+      tip.innerHTML = (tk ? '<span class="tk">' + esc(tk) + "</span>" : "") + esc(tb || "");
+      tip.style.opacity = "1";
+      moveTip(e);
+    });
+    document.addEventListener("mousemove", function (e) { if (tip.style.opacity === "1") moveTip(e); });
+    document.addEventListener("mouseout", function (e) {
+      if (e.target.closest("[data-tk]")) tip.style.opacity = "0";
+    });
+
+    // 搜索
+    var q = document.getElementById("q");
+    q.addEventListener("input", function () { applyFilters(); });
+
+    // 类型筛选
+    document.getElementById("filters").addEventListener("click", function (e) {
+      var chip = e.target.closest(".chip");
+      if (!chip) return;
+      document.querySelectorAll("#filters .chip").forEach(function (c) { c.classList.remove("active"); });
+      chip.classList.add("active");
+      applyFilters();
+    });
+
+    countUp();
+    revealStream();
+    revealBars();
+
+    // 论文详情：点击任何带 data-paper 的元素（抽屉外）
+    document.addEventListener("click", function (e) {
+      if (e.target.closest(".drawer")) return;
+      var el = e.target.closest("[data-paper]");
+      if (el) openPaper(el.getAttribute("data-paper"));
+    });
+    // 论文清单排序
+    var pl = document.getElementById("paperList");
+    if (pl) pl.addEventListener("click", function (e) {
+      var s = e.target.closest(".pl-sort"); if (!s) return;
+      pl.querySelectorAll(".pl-sort").forEach(function (x) { x.classList.remove("active"); });
+      s.classList.add("active"); sortList(s.getAttribute("data-sort"));
+    });
+    // 抽屉：关闭 / 内部导航 / 相关论文 / 复制
+    var bg = document.getElementById("drawerBg"); if (bg) bg.addEventListener("click", closePaper);
+    var dw = document.getElementById("drawer");
+    if (dw) dw.addEventListener("click", function (e) {
+      if (e.target.closest("[data-close]")) { closePaper(); return; }
+      var rp = e.target.closest("[data-paper]"); if (rp) { openPaper(rp.getAttribute("data-paper")); return; }
+      var nav = e.target.closest("[data-goto]"); if (nav) { doGoto(nav.getAttribute("data-goto"), nav.getAttribute("data-val")); return; }
+      var cp = e.target.closest("[data-copy]"); if (cp) { copyText(cp.getAttribute("data-copy")); cp.innerHTML = copyIcon() + "已复制"; }
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePaper(); });
+  }
+
+  // 柱状图：进入视口时生长
+  function revealBars() {
+    var bars = document.querySelector(".trend-bars");
+    if (!bars) return;
+    function go() { bars.classList.add("in"); }
+    if (!("IntersectionObserver" in window)) { go(); } else {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { if (en.isIntersecting) { go(); io.disconnect(); } });
+      }, { threshold: 0.1 });
+      io.observe(bars);
+      setTimeout(function () { if (!bars.classList.contains("in")) go(); }, 1200);
+    }
+    // 安全网：动画窗口后强制最终可见状态（防止个别环境 transition 不生效）
+    setTimeout(function () {
+      bars.querySelectorAll(".tcol:not(.empty) .fill").forEach(function (f) { f.style.transition = "none"; f.style.transform = "scaleY(1)"; });
+    }, 1700);
+  }
+
+  // 指标数字滚动
+  function countUp() {
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.querySelectorAll(".metric .num").forEach(function (el) {
+      var target = +el.getAttribute("data-val") || 0;
+      if (reduce || target === 0) { el.textContent = target; return; }
+      var dur = 900, t0 = null;
+      function tick(ts) {
+        if (!t0) t0 = ts;
+        var p = Math.min(1, (ts - t0) / dur);
+        var e = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(e * target);
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+
+  // 贡献流：滚动进入视口时级联浮现
+  function revealStream() {
+    var stream = document.getElementById("stream");
+    if (!stream) return;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function safety() {
+      setTimeout(function () {
+        stream.querySelectorAll(".scard").forEach(function (c) { c.style.transition = "none"; c.style.opacity = "1"; c.style.transform = "none"; });
+      }, 2400);
+    }
+    if (reduce || !("IntersectionObserver" in window)) { stream.classList.add("in"); safety(); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { stream.classList.add("in"); io.disconnect(); } });
+    }, { threshold: 0.12 });
+    io.observe(stream);
+    safety();
+  }
+
+  function moveTip(e) {
+    var pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    var x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - pad;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+
+  function applyFilters() {
+    var term = document.getElementById("q").value.trim().toLowerCase();
+    var activeKind = (document.querySelector("#filters .chip.active") || {}).getAttribute
+      ? document.querySelector("#filters .chip.active").getAttribute("data-kind") : "all";
+
+    // 方法 kind 高亮/淡化
+    document.querySelectorAll(".search-method").forEach(function (m) {
+      var ok = activeKind === "all" || m.getAttribute("data-kind") === activeKind;
+      m.style.opacity = ok ? "1" : "0.28";
+    });
+
+    // 问题聚类按关键词
+    var visC = 0;
+    document.querySelectorAll("#clusters .cluster").forEach(function (c) {
+      var blob = c.getAttribute("data-search") || "";
+      var kindOk = activeKind === "all" || hasKindMethod(c, activeKind);
+      var ok = (!term || blob.indexOf(term) !== -1) && kindOk;
+      c.classList.toggle("is-hidden", !ok);
+      if (ok) visC++;
+    });
+    document.getElementById("noMatch").classList.toggle("is-hidden", visC !== 0);
+
+    // 研究机会按关键词
+    var oppsEl = document.getElementById("opps");
+    if (oppsEl) {
+      var visO = 0;
+      oppsEl.querySelectorAll(".oploop").forEach(function (o) {
+        var blob = o.getAttribute("data-search") || "";
+        var ok = !term || blob.indexOf(term) !== -1;
+        o.classList.toggle("is-hidden", !ok);
+        if (ok) visO++;
+      });
+      document.getElementById("noMatchOpp").classList.toggle("is-hidden", visO !== 0);
+    }
+
+    // 论文清单按关键词
+    var plRowsEl = document.getElementById("plRows");
+    if (plRowsEl) {
+      var visL = 0;
+      plRowsEl.querySelectorAll(".pl-row").forEach(function (r) {
+        var blob = r.getAttribute("data-search") || "";
+        var ok = !term || blob.indexOf(term) !== -1;
+        r.classList.toggle("is-hidden", !ok);
+        if (ok) visL++;
+      });
+      var nml = document.getElementById("noMatchList");
+      if (nml) nml.classList.toggle("is-hidden", visL !== 0);
+    }
+  }
+
+  function hasKindMethod(cluster, kind) {
+    var ms = cluster.querySelectorAll(".search-method");
+    for (var i = 0; i < ms.length; i++) { if (ms[i].getAttribute("data-kind") === kind) return true; }
+    return false;
+  }
+
+  function renderEmpty() {
+    document.getElementById("filters").innerHTML = "";
+    app.innerHTML = '<div class="empty"><div class="big">暂无研究数据</div>' +
+      "<div>把论文同步到数据库并运行 AI 抽取后，研究地图会在这里展示<br>研究问题、方法、关系与可做方向的全景。</div></div>";
+  }
+})();
+</script>
+</body>
+</html>
