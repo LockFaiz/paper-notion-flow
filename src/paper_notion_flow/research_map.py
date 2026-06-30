@@ -318,9 +318,18 @@ class PaperContent:
 
 
 def _plain(items: list[dict]) -> str:
-    return "".join(
-        item.get("plain_text") or item.get("text", {}).get("content", "") for item in items
-    ).strip()
+    parts: list[str] = []
+    for item in items:
+        # Inline equations are stored as equation objects (that's why Notion
+        # renders them). Restore the ``$…$`` delimiters stripped when the guide
+        # was written, so KaTeX on the map page can render them.
+        if item.get("type") == "equation":
+            expr = (item.get("equation") or {}).get("expression") or item.get("plain_text") or ""
+            if expr:
+                parts.append(f"${expr}$")
+            continue
+        parts.append(item.get("plain_text") or item.get("text", {}).get("content", ""))
+    return "".join(parts).strip()
 
 
 def _first_text_property(page: dict, candidates: tuple[str, ...]) -> str:
@@ -609,7 +618,14 @@ def _block_sections(blocks: list[dict]) -> list[dict]:
     for block in blocks:
         block_type = block.get("type") or ""
         payload = block.get(block_type, {}) if block_type else {}
-        text = _plain(payload["rich_text"]) if isinstance(payload, dict) and "rich_text" in payload else ""
+        if isinstance(payload, dict) and "rich_text" in payload:
+            text = _plain(payload["rich_text"])
+        elif block_type == "equation":
+            # Standalone display equation: ``$$…$$`` (was dropped entirely before).
+            expr = (payload or {}).get("expression", "") if isinstance(payload, dict) else ""
+            text = f"$${expr}$$" if expr else ""
+        else:
+            text = ""
         if block_type in ("heading_1", "heading_2", "heading_3"):
             flush_bullets()
             current = {"h": text, "b": ""}
@@ -1098,13 +1114,55 @@ def export_from_notion(settings: Settings, *, data_dir: Path) -> str:
     )
 
 
+# KaTeX (CDN) auto-rendering ``$…$`` / ``$$…$$``. The detail drawer is built
+# dynamically, so a MutationObserver re-renders newly-inserted nodes. Injected
+# alongside GRAPH — the designed page (research-map.html) is not modified. Kept
+# byte-identical to the Cloudflare edge (cloudflare/.../functions/index.js).
+_KATEX_BLOCK = """
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+<script>
+(function () {
+  var OPTS = { delimiters: [
+    { left: "$$", right: "$$", display: true },
+    { left: "$", right: "$", display: false }
+  ], throwOnError: false, ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"] };
+  function render(root) {
+    if (!window.renderMathInElement || !root || root.nodeType !== 1) return;
+    try { window.renderMathInElement(root, OPTS); } catch (e) {}
+  }
+  function start() {
+    render(document.body);
+    new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) {
+        var added = muts[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j];
+          if (n.nodeType === 1 && !(n.classList && n.classList.contains("katex"))) render(n);
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+  var tries = 0;
+  var t = setInterval(function () {
+    if (window.renderMathInElement) { clearInterval(t); start(); }
+    else if (tries++ > 80) { clearInterval(t); }
+  }, 75);
+})();
+</script>
+"""
+
+
 def inject_graph(template: str, graph: dict) -> str:
-    """Inject ``window.GRAPH`` before the page's first <script>.
+    """Inject ``window.GRAPH`` (and KaTeX) before the page's first <script>.
 
     The page's data block is ``window.GRAPH = window.GRAPH || {…demo…}``, so a
     GRAPH defined earlier wins and the demo fallback is never used.
     """
-    injection = f"<script>window.GRAPH = {json.dumps(graph, ensure_ascii=False)};</script>\n"
+    injection = (
+        f"{_KATEX_BLOCK}<script>window.GRAPH = {json.dumps(graph, ensure_ascii=False)};</script>\n"
+    )
     index = template.find("<script>")
     if index == -1:
         return template + injection
@@ -1120,8 +1178,8 @@ def render_research_map(
 ) -> str:
     """Render the map by injecting graph.json into research-map.html (step 4).
 
-    research-map.html is a self-contained, zero-dependency frontend driven by a
-    global ``window.GRAPH``; no internet is needed to view it.
+    research-map.html is driven by a global ``window.GRAPH``; KaTeX is injected
+    (from a CDN) to render the ``$…$`` math in the AI analysis.
     """
     graph_path = data_dir / "research-map" / "graph.json"
     if not graph_path.exists():
@@ -1162,6 +1220,6 @@ def render_research_map(
             "MAP_RENDER:OK",
             f"GRAPH:{counts}",
             f"RESEARCH_MAP_HTML:{out_path}",
-            "Open it in a browser — the page is self-contained (no internet needed).",
+            "Open it in a browser (math formulas load KaTeX from a CDN, so keep internet on).",
         ]
     )
