@@ -34,22 +34,30 @@ const KATEX_BLOCK = `
     { left: "$$", right: "$$", display: true },
     { left: "$", right: "$", display: false }
   ], throwOnError: false, ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"] };
-  function render(root) {
-    if (!window.renderMathInElement || !root || root.nodeType !== 1) return;
-    if (root.querySelector && root.querySelector(".katex")) { /* allow re-scan */ }
-    try { window.renderMathInElement(root, OPTS); } catch (e) {}
+  var observer = null, pending = false;
+  function renderAll() {
+    pending = false;
+    if (!window.renderMathInElement) return;
+    // Disconnect while rendering: KaTeX edits the DOM, and an attached observer
+    // would re-fire on its own output → render storm → tab crash. Re-rendering
+    // the whole body is idempotent (rendered math has no $ left to match).
+    if (observer) observer.disconnect();
+    try { window.renderMathInElement(document.body, OPTS); } catch (e) {}
+    if (observer) observer.observe(document.body, { childList: true, subtree: true });
+  }
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    (window.requestAnimationFrame || window.setTimeout)(renderAll);
   }
   function start() {
-    render(document.body);
-    new MutationObserver(function (muts) {
+    renderAll();
+    observer = new MutationObserver(function (muts) {
       for (var i = 0; i < muts.length; i++) {
-        var added = muts[i].addedNodes;
-        for (var j = 0; j < added.length; j++) {
-          var n = added[j];
-          if (n.nodeType === 1 && !(n.classList && n.classList.contains("katex"))) render(n);
-        }
+        if (muts[i].addedNodes && muts[i].addedNodes.length) { schedule(); return; }
       }
-    }).observe(document.body, { childList: true, subtree: true });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
   // auto-render.js is deferred; poll briefly until it's ready, then start.
   var tries = 0;
